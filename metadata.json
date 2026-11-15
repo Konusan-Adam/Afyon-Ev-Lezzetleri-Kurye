@@ -1,0 +1,6 @@
+{
+  "name": "Afyon Ev Lezzetleri Kurye",
+  "description": "Afyon Ev Lezzetleri Kurye uygulaması.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
