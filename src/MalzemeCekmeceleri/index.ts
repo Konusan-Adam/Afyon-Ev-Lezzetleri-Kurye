@@ -90,6 +90,7 @@ export * from "./Mutfak/useMutfakCanliSiparisler";
 export * from "./MutfakYonetimi/BelgelerVeIzinler";
 export * from "./MutfakYonetimi/MutfakYonetimTipleri";
 export * from "./MutfakYonetimi/siparisIptalIslemleri";
+export * from "./MutfakYonetimi/cokluMenuServisi";
 
 // Ön Sipariş ve Porsiyon Logic
 export * from "./OnSiparisVePorsiyon/PorsiyonServisi";

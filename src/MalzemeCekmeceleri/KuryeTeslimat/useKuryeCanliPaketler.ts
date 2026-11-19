@@ -2,9 +2,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { canliFirebaseAktifMi } from '@/src/veritabani/FirebaseIstemcisi';
 import { koleksiyonuCanliDinle, koleksiyonGetir } from '@/src/veritabani/FirebaseKoleksiyonServisi';
 import { yerelSiparisleriGetir } from '@/src/MalzemeCekmeceleri/useMusteriSiparisleri';
+import { siparisIptalEt } from '@/src/MalzemeCekmeceleri/MutfakYonetimi/siparisIptalIslemleri';
 import { kuryePaketiUzerineAl, kuryePaketiTeslimAldi, kuryePinDogrulaVeTeslimEt, kuryeZamanAsimiKontrolEt } from './KuryePinServisi';
 
-export const useKuryeCanliPaketler = (kuryeId: string, kuryeAdi: string) => {
+export const useKuryeCanliPaketler = (
+  kuryeId: string,
+  kuryeAdi: string,
+  kuryeTelefon: string = ''
+) => {
   const [paketler, setPaketler] = useState<any[]>([]);
   const [yukleniyor, setYukleniyor] = useState(true);
 
@@ -73,8 +78,8 @@ export const useKuryeCanliPaketler = (kuryeId: string, kuryeAdi: string) => {
     };
   }, [yenile]);
 
-  const paketiAl = async (siparisId: string) => {
-    const sonuc = await kuryePaketiUzerineAl(siparisId, kuryeId, kuryeAdi);
+  const paketiAl = async (siparisId: string, tahminiDakika: number = 15) => {
+    const sonuc = await kuryePaketiUzerineAl(siparisId, kuryeId, kuryeAdi, kuryeTelefon, tahminiDakika);
     await yenile();
     return sonuc;
   };
@@ -89,6 +94,14 @@ export const useKuryeCanliPaketler = (kuryeId: string, kuryeAdi: string) => {
     const sonuc = await kuryePinDogrulaVeTeslimEt(siparisKodu, pin);
     await yenile();
     return sonuc;
+  };
+
+  const paketiIptalEt = async (siparisId: string, gerekce: string, detayNot?: string) => {
+    const basarili = await siparisIptalEt(siparisId, gerekce, detayNot, 'kurye');
+    await yenile();
+    return basarili
+      ? { basarili: true, mesaj: 'Sipariş kurye tarafından iptal edildi.' }
+      : { basarili: false, mesaj: 'Sipariş iptal edilemedi.' };
   };
 
   // 1. Mutfakta paketlenmiş VEYA kuryenin üzerine aldığı aktif paketler
@@ -106,7 +119,8 @@ export const useKuryeCanliPaketler = (kuryeId: string, kuryeAdi: string) => {
     const tamamlandiMi = 
       durum === 'teslim_edildi' || 
       durum === 'iptal' || 
-      asama === 'teslim_edildi';
+      asama === 'teslim_edildi' ||
+      asama === 'iptal';
     
     if (!hazirMi || tamamlandiMi) return false;
     
@@ -121,5 +135,5 @@ export const useKuryeCanliPaketler = (kuryeId: string, kuryeAdi: string) => {
     return tamamlandi && p.kurye_id === kuryeId;
   });
 
-  return { paketler, aktifPaketler, teslimEdilenler, yukleniyor, paketiAl, paketiTeslimAldiBildir, teslimEt };
+  return { paketler, aktifPaketler, teslimEdilenler, yukleniyor, paketiAl, paketiTeslimAldiBildir, teslimEt, paketiIptalEt };
 };

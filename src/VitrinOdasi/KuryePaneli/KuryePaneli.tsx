@@ -39,31 +39,43 @@ export const KuryePaneli: React.FC = () => {
 
   const kuryeId = aktifKullanici?.kimlik || aktifKullanici?.id || 'kurye-1';
   const kuryeAdi = aktifKullanici?.ad_soyad || 'Kurye';
+  const kuryeTelefon = aktifKullanici?.telefon || '';
 
   // 🔔 Kurye Dağıtım & Paket Var Canlı Dedektörü
   const { yeniPaketUyarisi, uyariKapat } = useKuryeBildirimleri(kuryeId);
 
-  const { aktifPaketler, teslimEdilenler, paketiAl, paketiTeslimAldiBildir, teslimEt } = useKuryeCanliPaketler(kuryeId, kuryeAdi);
+  const { aktifPaketler, teslimEdilenler, paketiAl, paketiTeslimAldiBildir, teslimEt, paketiIptalEt } = useKuryeCanliPaketler(
+    kuryeId,
+    kuryeAdi,
+    kuryeTelefon
+  );
 
   const aktifPaketIdleri = aktifPaketler.map(p => p.id || p.siparis_kodu || p.siparisKodu);
   const { yayinAktif, sonKonum } = useKuryeKonumYayini({
     kuryeId,
     kuryeAdi,
-    telefon: aktifKullanici?.telefon,
+    telefon: kuryeTelefon,
     aracTipi: aktifKullanici?.arac_tipi,
     plaka: aktifKullanici?.plaka,
     gorevde,
     aktifPaketIdleri
   });
 
-  const paketAlVeBildir = async (id: string) => {
-    const sonuc = await paketiAl(id);
+  const paketAlVeBildir = async (id: string, tahminiDakika: number = 15) => {
+    const sonuc = await paketiAl(id, tahminiDakika);
     setBilgiMesaji(sonuc.mesaj);
     setTimeout(() => setBilgiMesaji(''), 4000);
   };
 
   const teslimEtVeBildir = async (kod: string, pin: string) => {
     const sonuc = await teslimEt(kod, pin);
+    setBilgiMesaji(sonuc.mesaj);
+    setTimeout(() => setBilgiMesaji(''), 4000);
+    return sonuc;
+  };
+
+  const paketIptalEtVeBildir = async (id: string, gerekce: string, detayNot?: string) => {
+    const sonuc = await paketiIptalEt(id, gerekce, detayNot);
     setBilgiMesaji(sonuc.mesaj);
     setTimeout(() => setBilgiMesaji(''), 4000);
     return sonuc;
@@ -247,6 +259,7 @@ export const KuryePaneli: React.FC = () => {
                     setTimeout(() => setBilgiMesaji(''), 4000);
                   }}
                   onTeslimEt={teslimEtVeBildir}
+                  onPaketiIptalEt={paketIptalEtVeBildir}
                   onQrAc={(kod: string) => {
                     setSeciliSiparisKodu(kod);
                     setQrTaramaAcik(true);

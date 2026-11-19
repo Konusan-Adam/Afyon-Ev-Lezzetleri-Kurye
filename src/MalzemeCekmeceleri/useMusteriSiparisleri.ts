@@ -44,7 +44,12 @@ export function yerelSiparisKaydet(siparis: TestSiparis) {
 }
 
 // Tüm yerel depolama anahtarlarında sipariş durumunu güncelle
-export function yerelSiparisDurumGuncelle(siparisKimligi: string, yeniDurum: string, durumAciklamasi?: string) {
+export function yerelSiparisDurumGuncelle(
+  siparisKimligi: string,
+  yeniDurum: string,
+  durumAciklamasi?: string,
+  ekAlanlar?: Record<string, any>
+) {
   try {
     const anahtarlar = [
       SIPARIS_YEREL_DEPO_ANAHTARI,
@@ -60,6 +65,7 @@ export function yerelSiparisDurumGuncelle(siparisKimligi: string, yeniDurum: str
             if (s.id === siparisKimligi || s.kimlik === siparisKimligi || s.siparis_kodu === siparisKimligi || s.siparisKodu === siparisKimligi) {
               return {
                 ...s,
+                ...(ekAlanlar || {}),
                 durum: yeniDurum,
                 durum_aciklamasi: durumAciklamasi || (yeniDurum === 'iptal' ? 'Sipariş İptal Edildi.' : s.durum_aciklamasi),
                 durumAciklamasi: durumAciklamasi || (yeniDurum === 'iptal' ? 'Sipariş İptal Edildi.' : s.durumAciklamasi)
@@ -75,6 +81,9 @@ export function yerelSiparisDurumGuncelle(siparisKimligi: string, yeniDurum: str
     // Hafızadaki TEST_SIPARISLERI dizisini de güncelle
     TEST_SIPARISLERI.forEach(s => {
       if (s.id === siparisKimligi || (s as any).kimlik === siparisKimligi || s.siparis_kodu === siparisKimligi) {
+        if (ekAlanlar) {
+          Object.assign(s, ekAlanlar);
+        }
         s.durum = yeniDurum as any;
         s.durum_aciklamasi = durumAciklamasi || (yeniDurum === 'iptal' ? 'Sipariş İptal Edildi.' : s.durum_aciklamasi);
       }

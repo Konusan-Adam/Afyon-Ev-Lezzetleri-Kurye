@@ -8,21 +8,26 @@ import {
   QrCode,
   KeyRound,
   Store,
-  User,
-  Clock,
-  ChevronDown,
-  ChevronUp
+  XCircle
 } from 'lucide-react';
 
 export interface KuryePaketKartiProps {
   paket: any;
   kuryeId: string;
-  onPaketAl: (id: string) => Promise<void> | void;
+  onPaketAl: (id: string, tahminiDakika?: number) => Promise<void> | void;
   onPaketiTeslimAldi: (id: string) => Promise<void> | void;
   onTeslimEt: (kod: string, pin: string) => Promise<any>;
+  onPaketiIptalEt?: (id: string, gerekce: string, detayNot?: string) => Promise<any>;
   onQrAc: (kod: string) => void;
   onHaritaAc: (pkt: any) => void;
 }
+
+const KURYE_IPTAL_GEREKCELERI = [
+  'Müşteriye ulaşılamıyor',
+  'Adres teslimat bölgesi dışında',
+  'Müşteri talebiyle iptal',
+  'Araç arızası / Teslimat engeli'
+];
 
 export const KuryePaketKarti: React.FC<KuryePaketKartiProps> = ({
   paket,
@@ -30,11 +35,15 @@ export const KuryePaketKarti: React.FC<KuryePaketKartiProps> = ({
   onPaketAl,
   onPaketiTeslimAldi,
   onTeslimEt,
+  onPaketiIptalEt,
   onQrAc,
   onHaritaAc
 }) => {
   const [pinGirdisi, setPinGirdisi] = useState('');
-  const [detayAcik, setDetayAcik] = useState(false);
+  const [tahminiDakika, setTahminiDakika] = useState<number>(15);
+  const [iptalPaneliAcik, setIptalPaneliAcik] = useState(false);
+  const [iptalGerekcesi, setIptalGerekcesi] = useState(KURYE_IPTAL_GEREKCELERI[0]);
+  const [iptalNotu, setIptalNotu] = useState('');
   const [islemde, setIslemde] = useState(false);
   const [hataMesaji, setHataMesaji] = useState('');
 
@@ -66,6 +75,26 @@ export const KuryePaketKarti: React.FC<KuryePaketKartiProps> = ({
       }
     } catch (err: any) {
       setHataMesaji(err.message || 'Teslimat hatası oluştu.');
+    } finally {
+      setIslemde(false);
+    }
+  };
+
+  const handleKuryeIptal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!onPaketiIptalEt) return;
+    setIslemde(true);
+    setHataMesaji('');
+    try {
+      const res = await onPaketiIptalEt(paket.id || siparisKodu, iptalGerekcesi, iptalNotu);
+      if (res && !res.basarili) {
+        setHataMesaji(res.mesaj || 'İptal işlemi başarısız oldu.');
+      } else {
+        setIptalPaneliAcik(false);
+        setIptalNotu('');
+      }
+    } catch (err: any) {
+      setHataMesaji(err.message || 'İptal sırasında hata oluştu.');
     } finally {
       setIslemde(false);
     }
@@ -132,23 +161,50 @@ export const KuryePaketKarti: React.FC<KuryePaketKartiProps> = ({
       {/* Aksiyon Butonları */}
       <div className="pt-2 border-t border-purple-900/50 flex flex-wrap gap-2 items-center justify-between">
         {!benimUzerimde ? (
-          <button
-            type="button"
-            onClick={() => onPaketAl(paket.id || siparisKodu)}
-            className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 text-black font-black text-xs shadow-md shadow-amber-500/20 flex items-center justify-center gap-2 cursor-pointer transition-all"
-          >
-            <Bike className="w-4 h-4" />
-            <span>Paketi Üzerime Al 🛵</span>
-          </button>
+          <div className="w-full space-y-2">
+            <div className="flex items-center justify-between gap-2 text-[11px] text-purple-200">
+              <span>Mutfağa tahmini varış süresi:</span>
+              <select
+                value={tahminiDakika}
+                onChange={(e) => setTahminiDakika(Number(e.target.value))}
+                className="bg-[#100313] border border-purple-800 rounded-lg px-2 py-1 text-xs text-amber-300 font-bold focus:outline-none focus:border-amber-400"
+              >
+                <option value={10}>10 dk</option>
+                <option value={15}>15 dk</option>
+                <option value={20}>20 dk</option>
+                <option value={30}>30 dk</option>
+              </select>
+            </div>
+            <button
+              type="button"
+              onClick={() => onPaketAl(paket.id || siparisKodu, tahminiDakika)}
+              className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 text-black font-black text-xs shadow-md shadow-amber-500/20 flex items-center justify-center gap-2 cursor-pointer transition-all"
+            >
+              <Bike className="w-4 h-4" />
+              <span>Paketi Üzerime Al 🛵</span>
+            </button>
+          </div>
         ) : !mutfaktanAlindi ? (
-          <button
-            type="button"
-            onClick={() => onPaketiTeslimAldi(paket.id || siparisKodu)}
-            className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 text-white font-black text-xs shadow-md shadow-purple-600/20 flex items-center justify-center gap-2 cursor-pointer transition-all"
-          >
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            <span>Mutfaktan Teslim Aldım (Yola Çık) 📦</span>
-          </button>
+          <div className="w-full space-y-2">
+            <button
+              type="button"
+              onClick={() => onPaketiTeslimAldi(paket.id || siparisKodu)}
+              className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 text-white font-black text-xs shadow-md shadow-purple-600/20 flex items-center justify-center gap-2 cursor-pointer transition-all"
+            >
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <span>Mutfaktan Teslim Aldım (Yola Çık) 📦</span>
+            </button>
+            {onPaketiIptalEt && (
+              <button
+                type="button"
+                onClick={() => setIptalPaneliAcik(!iptalPaneliAcik)}
+                className="w-full py-2 px-3 rounded-xl bg-rose-950/50 hover:bg-rose-900/70 border border-rose-800/50 text-rose-300 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+              >
+                <XCircle className="w-3.5 h-3.5" />
+                <span>Siparişi İptal Et</span>
+              </button>
+            )}
+          </div>
         ) : (
           <div className="w-full space-y-3">
             {/* Buton Barı: Harita / Arama / QR */}
@@ -212,7 +268,57 @@ export const KuryePaketKarti: React.FC<KuryePaketKartiProps> = ({
                 {islemde ? 'Doğrulanıyor...' : 'Teslim Et'}
               </button>
             </form>
+
+            {onPaketiIptalEt && (
+              <button
+                type="button"
+                onClick={() => setIptalPaneliAcik(!iptalPaneliAcik)}
+                className="w-full py-2 px-3 rounded-xl bg-rose-950/50 hover:bg-rose-900/70 border border-rose-800/50 text-rose-300 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+              >
+                <XCircle className="w-3.5 h-3.5" />
+                <span>Teslimatı İptal Et</span>
+              </button>
+            )}
           </div>
+        )}
+
+        {/* Kurye İptal Formu */}
+        {iptalPaneliAcik && onPaketiIptalEt && (
+          <form onSubmit={handleKuryeIptal} className="w-full mt-2 p-3 rounded-xl bg-rose-950/40 border border-rose-800/60 space-y-2">
+            <label className="block text-[11px] font-bold text-rose-200">İptal Gerekçesi</label>
+            <select
+              value={iptalGerekcesi}
+              onChange={(e) => setIptalGerekcesi(e.target.value)}
+              className="w-full bg-[#100313] border border-rose-900/60 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-rose-400"
+            >
+              {KURYE_IPTAL_GEREKCELERI.map((g) => (
+                <option key={g} value={g}>{g}</option>
+              ))}
+            </select>
+            <input
+              type="text"
+              value={iptalNotu}
+              onChange={(e) => setIptalNotu(e.target.value)}
+              placeholder="İsteğe bağlı açıklama..."
+              className="w-full bg-[#100313] border border-rose-900/60 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-rose-400"
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setIptalPaneliAcik(false)}
+                className="flex-1 py-1.5 px-3 rounded-lg bg-black/40 text-gray-300 text-xs font-bold cursor-pointer"
+              >
+                Vazgeç
+              </button>
+              <button
+                type="submit"
+                disabled={islemde}
+                className="flex-1 py-1.5 px-3 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-black cursor-pointer disabled:opacity-50"
+              >
+                {islemde ? 'İptal Ediliyor...' : 'İptali Onayla'}
+              </button>
+            </div>
+          </form>
         )}
       </div>
     </div>

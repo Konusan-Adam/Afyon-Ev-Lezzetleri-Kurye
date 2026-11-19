@@ -6,7 +6,9 @@ import { kuryeTeslimZiliCal } from '@/src/MalzemeCekmeceleri/KuryeTeslimZili';
 export async function kuryePaketiUzerineAl(
   siparisId: string,
   kuryeId: string,
-  kuryeAdi: string
+  kuryeAdi: string,
+  kuryeTelefonParam: string = '',
+  tahminiDakika: number = 15
 ): Promise<{ basarili: boolean; mesaj: string }> {
   try {
     // 🛡️ Güvenlik Zırhı: Onaylanmamış kurye paket alamaz
@@ -37,32 +39,45 @@ export async function kuryePaketiUzerineAl(
       return { basarili: false, mesaj: 'Bu paket az önce başka bir kurye tarafından alındı!' };
     }
 
+    const kuryeTelefon = String(kuryeTelefonParam || kuryeKayiT?.telefon || '').trim();
+    const gecerliTahminiDakika = Number(tahminiDakika) > 0 ? Number(tahminiDakika) : 15;
     const aciklamaMetni = `Kurye (${kuryeAdi}) paketi almak için yola çıktı. 5 dakika içinde teslim alması gerekmektedir!`;
 
+    const kuryeAtamaAlanlari = {
+      kurye_id: kuryeId,
+      kurye_adi: kuryeAdi,
+      kurye_telefon: kuryeTelefon,
+      kurye_tahmini_dakika: gecerliTahminiDakika,
+      asama: 'kurye_geliyor',
+      kurye_alis_zamani: Date.now(),
+      kurye_teslim_aldi_mi: false,
+    };
+
     // 1. Yerel hafızayı güncelle
-    yerelSiparisDurumGuncelle(siparis.id || siparisId, 'paketlendi', aciklamaMetni);
+    yerelSiparisDurumGuncelle(siparis.id || siparisId, 'paketlendi', aciklamaMetni, kuryeAtamaAlanlari);
     if (siparis.siparis_kodu) {
-      yerelSiparisDurumGuncelle(siparis.siparis_kodu, 'paketlendi', aciklamaMetni);
+      yerelSiparisDurumGuncelle(siparis.siparis_kodu, 'paketlendi', aciklamaMetni, kuryeAtamaAlanlari);
     }
 
     // 2. Canlı sinyal fırlat
     if (typeof window !== 'undefined') {
       window.dispatchEvent(
         new CustomEvent('afyon_siparis_durum_degisti', {
-          detail: { siparisKimligi: siparis.id || siparisId, durum: 'paketlendi', kurye_id: kuryeId, kurye_adi: kuryeAdi, asama: 'kurye_geliyor' }
+          detail: {
+            siparisKimligi: siparis.id || siparisId,
+            durum: 'paketlendi',
+            ...kuryeAtamaAlanlari
+          }
         })
       );
     }
 
     const kayit = await belgeKaydet('siparisler', siparis.id || siparisId, {
       ...siparis,
-      kurye_id: kuryeId,
-      kurye_adi: kuryeAdi,
-      asama: 'kurye_geliyor',
+      ...kuryeAtamaAlanlari,
       durum: 'paketlendi',
-      kurye_alis_zamani: Date.now(),
-      kurye_teslim_aldi_mi: false,
-      durumAciklamasi: aciklamaMetni
+      durumAciklamasi: aciklamaMetni,
+      durum_aciklamasi: aciklamaMetni
     });
 
     // 🔔 Mutfağa Bildirim Gönder: Kurye yola çıktı
@@ -103,9 +118,15 @@ export async function kuryePaketiTeslimAldi(
 
     const aciklamaMetni = 'Kurye paketi mutfaktan teslim aldı, adrese doğru yola çıktı!';
 
-    yerelSiparisDurumGuncelle(siparis.id || siparisId, 'yolda', aciklamaMetni);
+    yerelSiparisDurumGuncelle(siparis.id || siparisId, 'yolda', aciklamaMetni, {
+      asama: 'kuryede',
+      kurye_teslim_aldi_mi: true,
+    });
     if (siparis.siparis_kodu) {
-      yerelSiparisDurumGuncelle(siparis.siparis_kodu, 'yolda', aciklamaMetni);
+      yerelSiparisDurumGuncelle(siparis.siparis_kodu, 'yolda', aciklamaMetni, {
+        asama: 'kuryede',
+        kurye_teslim_aldi_mi: true,
+      });
     }
 
     if (typeof window !== 'undefined') {
@@ -122,7 +143,8 @@ export async function kuryePaketiTeslimAldi(
       durum: 'yolda',
       kurye_teslim_aldi_mi: true,
       teslim_aldi_zamani: Date.now(),
-      durumAciklamasi: aciklamaMetni
+      durumAciklamasi: aciklamaMetni,
+      durum_aciklamasi: aciklamaMetni
     });
 
     patronBildirimiEkle(
@@ -158,6 +180,8 @@ export async function kuryeZamanAsimiKontrolEt() {
         const guncelVeri = {
           kurye_id: null,
           kurye_adi: null,
+          kurye_telefon: null,
+          kurye_tahmini_dakika: null,
           asama: 'paketlendi',
           durum: 'paketlendi',
           kurye_alis_zamani: null,
@@ -166,7 +190,7 @@ export async function kuryeZamanAsimiKontrolEt() {
         };
 
         await belgeKaydet('siparisler', sip.id, { ...sip, ...guncelVeri });
-        yerelSiparisDurumGuncelle(sip.id, 'paketlendi', guncelVeri.durumAciklamasi);
+        yerelSiparisDurumGuncelle(sip.id, 'paketlendi', guncelVeri.durumAciklamasi, guncelVeri);
 
         patronBildirimiEkle(
           'siparis_durumu',

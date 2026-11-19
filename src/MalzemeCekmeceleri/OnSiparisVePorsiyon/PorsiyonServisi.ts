@@ -94,3 +94,12 @@ export function porsiyonBelirle(
   } as any;
   depoyaKaydet(depo);
 }
+
+export function porsiyonIade(yemekId: string, adet: number = 1): void {
+  const depo = depoGetir();
+  const mevcut = depo[yemekId] || { toplam: 10, kalan: 10 };
+  const yeniKalan = Math.min(mevcut.toplam, mevcut.kalan + adet);
+  depo[yemekId] = { ...mevcut, kalan: yeniKalan };
+  depoyaKaydet(depo);
+}
+
