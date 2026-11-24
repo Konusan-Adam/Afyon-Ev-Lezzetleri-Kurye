@@ -90,8 +90,12 @@ export const useKuryeCanliPaketler = (
     return sonuc;
   };
 
-  const teslimEt = async (siparisKodu: string, pin: string) => {
-    const sonuc = await kuryePinDogrulaVeTeslimEt(siparisKodu, pin);
+  const teslimEt = async (
+    siparisKodu: string,
+    pin: string,
+    dogrulamaYontemi?: 'pin' | 'qr'
+  ) => {
+    const sonuc = await kuryePinDogrulaVeTeslimEt(siparisKodu, pin, dogrulamaYontemi);
     await yenile();
     return sonuc;
   };

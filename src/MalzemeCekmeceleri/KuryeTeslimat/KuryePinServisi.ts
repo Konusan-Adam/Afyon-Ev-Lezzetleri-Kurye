@@ -2,6 +2,7 @@ import { belgeKaydet, koleksiyonGetir } from '@/src/veritabani/FirebaseKoleksiyo
 import { patronBildirimiEkle } from '@/src/MalzemeCekmeceleri/PatronBildirimServisi';
 import { yerelSiparisDurumGuncelle, yerelSiparisleriGetir } from '@/src/MalzemeCekmeceleri/useMusteriSiparisleri';
 import { kuryeTeslimZiliCal } from '@/src/MalzemeCekmeceleri/KuryeTeslimZili';
+import { hukukiDelilDamgala } from '@/src/MalzemeCekmeceleri/HukukVeSozlesmeler/hukukiDelilServisi';
 
 export async function kuryePaketiUzerineAl(
   siparisId: string,
@@ -88,6 +89,27 @@ export async function kuryePaketiUzerineAl(
       siparis.id
     );
 
+    if (kayit) {
+      const hedefKod = String(siparis.siparis_kodu || siparis.siparisKodu || siparis.id || siparisId);
+      hukukiDelilDamgala({
+        sozlesmeTuru: 'kurye_paket_teslim_alma',
+        sozlesmeVersiyonu: '1.0.0',
+        islemTuru: 'ozel_onay',
+        onaylandiMi: true,
+        ilgiliKayitId: hedefKod,
+        kullaniciKimlik: kuryeId,
+        kullaniciTelefon: kuryeTelefon,
+        kullaniciAdSoyad: kuryeAdi,
+        ekDetay: {
+          adim: 'paketi_uzerine_alma',
+          kaynak: 'siparisler',
+          tahminiDakika: gecerliTahminiDakika
+        }
+      }).catch((err) => {
+        console.warn('Paket üzerine alma hukuki damga uyarısı:', err);
+      });
+    }
+
     return kayit
       ? { basarili: true, mesaj: 'Paket üzerinize kilitlendi! 5 dakika içinde mutfaktan teslim almanız gerekmektedir.' }
       : { basarili: false, mesaj: 'Kayıt sırasında hata oluştu.' };
@@ -154,6 +176,26 @@ export async function kuryePaketiTeslimAldi(
       siparis.id
     );
 
+    if (kayit) {
+      const hedefKod = String(siparis.siparis_kodu || siparis.siparisKodu || siparis.id || siparisId);
+      hukukiDelilDamgala({
+        sozlesmeTuru: 'kurye_paket_teslim_alma',
+        sozlesmeVersiyonu: '1.0.0',
+        islemTuru: 'ozel_onay',
+        onaylandiMi: true,
+        ilgiliKayitId: hedefKod,
+        kullaniciKimlik: kuryeId,
+        kullaniciTelefon: String(siparis.kurye_telefon || ''),
+        kullaniciAdSoyad: String(siparis.kurye_adi || ''),
+        ekDetay: {
+          adim: 'mutfaktan_teslim_alma',
+          kaynak: 'siparisler'
+        }
+      }).catch((err) => {
+        console.warn('Mutfaktan teslim alma hukuki damga uyarısı:', err);
+      });
+    }
+
     return kayit
       ? { basarili: true, mesaj: 'Paket teslim alındı! Müşteri açık adresi ve canlı takip aktif edildi.' }
       : { basarili: false, mesaj: 'Kayıt sırasında hata oluştu.' };
@@ -207,7 +249,8 @@ export async function kuryeZamanAsimiKontrolEt() {
 
 export async function kuryePinDogrulaVeTeslimEt(
   siparisKodu: string,
-  girilenPin: string
+  girilenPin: string,
+  dogrulamaYontemiParam?: 'pin' | 'qr'
 ): Promise<{ basarili: boolean; mesaj: string }> {
   try {
     const girilenTemiz = String(girilenPin || '').trim();
@@ -313,6 +356,30 @@ export async function kuryePinDogrulaVeTeslimEt(
         });
       }
     }
+
+    const dogrulamaYontemi: 'pin' | 'qr' =
+      dogrulamaYontemiParam || (qrGecerli && !pinGecerli ? 'qr' : 'pin');
+    const tutar = Number(siparis.toplam_tutar ?? siparis.tutar ?? siparis.toplamTutar ?? 0);
+    const damgaSiparisKodu = String(siparis.siparis_kodu || siparis.siparisKodu || siparis.id || siparisKodu);
+
+    hukukiDelilDamgala({
+      sozlesmeTuru: 'teslimat_pin_qr_onayi',
+      sozlesmeVersiyonu: '1.0.0',
+      islemTuru: 'teslimat',
+      onaylandiMi: true,
+      ilgiliKayitId: damgaSiparisKodu,
+      kullaniciKimlik: String(siparis.kurye_id || ''),
+      kullaniciTelefon: String(siparis.kurye_telefon || ''),
+      kullaniciAdSoyad: String(siparis.kurye_adi || ''),
+      ekDetay: {
+        dogrulamaYontemi,
+        kuryeId: String(siparis.kurye_id || ''),
+        tutar,
+        kaynak: 'siparisler'
+      }
+    }).catch((err) => {
+      console.warn('Teslimat PIN/QR hukuki damga uyarısı:', err);
+    });
 
     return { basarili: true, mesaj: 'Teslimat başarıyla tamamlandı! Priminiz hesabınıza eklendi.' };
   } catch (hata: any) {

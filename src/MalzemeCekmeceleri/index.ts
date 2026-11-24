@@ -66,15 +66,18 @@ export * from "./GuvenlikZirhi/ZirhTipleri";
 
 // Hukuk ve Sözleşmeler Logic
 export * from "./HukukVeSozlesmeler/hukukDeposu";
+export * from "./HukukVeSozlesmeler/hukukiDelilServisi";
 export * from "./HukukVeSozlesmeler/tipler";
 
 // Kurye Teslimat Logic
 export * from "./KuryeTeslimat/KuryePinServisi";
 export * from "./KuryeTeslimat/KuryeZilServisi";
+export * from "./KuryeTeslimat/SubeSiparisServisi";
 export * from "./KuryeTeslimat/kuryeKonumGonderici";
 export * from "./KuryeTeslimat/useKuryeBildirimleri";
 export * from "./KuryeTeslimat/useKuryeCanliPaketler";
 export * from "./KuryeTeslimat/useKuryeKonumYayini";
+export * from "./KuryeTeslimat/useKuryeSubeSiparisleri";
 
 // Mutfak Logic
 export * from "./Mutfak/MutfakSiparisIslemleri";

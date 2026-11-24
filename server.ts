@@ -1,16 +1,21 @@
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
+import { zamanDamgasiRotasiOlustur } from './server/ZamanDamgasi/zamanDamgasiRotasi';
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  app.set('trust proxy', true);
+  app.use(express.json({ limit: '256kb' }));
 
   // Health and ping routes
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', time: new Date().toISOString() });
   });
+
+  // RFC 3161 + SHA-256 Zaman Damgası Rotası
+  app.use('/api/zaman-damgasi', zamanDamgasiRotasiOlustur());
 
   if (process.env.NODE_ENV === 'production') {
     app.use(express.static('dist'));

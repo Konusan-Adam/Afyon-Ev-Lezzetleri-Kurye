@@ -288,8 +288,8 @@ export const hukukiLogKaydet = (logVerisi: Omit<HukukiOnayLogu, 'kimlik' | 'tari
   const yeniLog: HukukiOnayLogu = {
     kimlik: 'log_' + Date.now().toString() + '_' + Math.random().toString(36).substring(2, 6),
     tarihSaat: new Date().toLocaleString('tr-TR'),
-    ipAdresi: '195.175.' + Math.floor(Math.random() * 200 + 10) + '.' + Math.floor(Math.random() * 200 + 10) + ' (Afyon/Merkez)',
-    cihazBilgisi: navigator.userAgent.substring(0, 70),
+    ipAdresi: 'bilinmiyor',
+    cihazBilgisi: typeof navigator !== 'undefined' ? navigator.userAgent.substring(0, 120) : 'bilinmiyor',
     ...logVerisi
   };
 

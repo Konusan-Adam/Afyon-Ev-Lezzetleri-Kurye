@@ -5,7 +5,11 @@ import { useCanliKameraTarayici } from '@/src/MalzemeCekmeceleri/QrTeslimat/useC
 export interface KuryeQrTarayiciModaliProps {
   siparisKodu: string;
   onKapat: () => void;
-  onTeslimatTamamlandi: (kod: string, pin: string) => Promise<{ basarili: boolean; mesaj: string }>;
+  onTeslimatTamamlandi: (
+    kod: string,
+    pin: string,
+    dogrulamaYontemi?: 'pin' | 'qr'
+  ) => Promise<{ basarili: boolean; mesaj: string }>;
 }
 
 export const KuryeQrTarayiciModali: React.FC<KuryeQrTarayiciModaliProps> = ({
@@ -17,7 +21,7 @@ export const KuryeQrTarayiciModali: React.FC<KuryeQrTarayiciModaliProps> = ({
   const [durumMesaji, setDurumMesaji] = useState<{ tip: 'basari' | 'hata'; metin: string } | null>(null);
   const [isleniyor, setIsleniyor] = useState(false);
 
-  const qrIsle = async (okunanVeri: string) => {
+  const qrIsle = async (okunanVeri: string, yontem: 'pin' | 'qr' = 'qr') => {
     if (isleniyor) return;
     setIsleniyor(true);
     setDurumMesaji(null);
@@ -36,7 +40,7 @@ export const KuryeQrTarayiciModali: React.FC<KuryeQrTarayiciModaliProps> = ({
         pin = parcalar[parcalar.length - 1].trim();
       }
 
-      const sonuc = await onTeslimatTamamlandi(kod, pin);
+      const sonuc = await onTeslimatTamamlandi(kod, pin, yontem);
       if (sonuc.basarili) {
         setDurumMesaji({ tip: 'basari', metin: sonuc.mesaj || 'Teslimat başarıyla onaylandı!' });
         setTimeout(() => {
@@ -67,14 +71,14 @@ export const KuryeQrTarayiciModali: React.FC<KuryeQrTarayiciModaliProps> = ({
     feneriDegistir,
     sonKoduSifirla
   } = useCanliKameraTarayici({
-    onKodBulundu: qrIsle,
+    onKodBulundu: (veri) => qrIsle(veri, 'qr'),
     aktifMi: true
   });
 
   const handleManuelGonder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!manuelPin.trim()) return;
-    await qrIsle(manuelPin.trim());
+    await qrIsle(manuelPin.trim(), 'pin');
   };
 
   return (

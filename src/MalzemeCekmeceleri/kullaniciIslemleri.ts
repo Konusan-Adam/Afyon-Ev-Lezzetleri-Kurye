@@ -8,6 +8,7 @@ import {
 } from '@/src/veritabani/CanliVeriYardimcisi';
 import { telefonGecerliMi } from '@/src/MalzemeCekmeceleri';
 import { patronBildirimiEkle } from '@/src/MalzemeCekmeceleri/PatronBildirimServisi';
+import { kuryeKayitSozlesmeleriniDamgala } from '@/src/MalzemeCekmeceleri/HukukVeSozlesmeler/hukukiDelilServisi';
 
 function telefonTemizle(tel: string): string {
   const rakamlar = tel.replace(/\D/g, '');
@@ -77,6 +78,17 @@ export async function veritabaninaKullaniciKaydet(
     }
   } else if (yeniKullanici.rol === 'kurye') {
     patronBildirimiEkle('yeni_kurye', 'Yeni Kurye Başvurusu 🛵', `${kullaniciKaydi.ad_soyad} kurye olmak için başvurdu. Onay bekliyor.`, kimlikId);
+    kuryeKayitSozlesmeleriniDamgala({
+      kullaniciKimlik: kimlikId,
+      kullaniciTelefon: duzgunTelefon,
+      kullaniciAdSoyad: kullaniciKaydi.ad_soyad,
+      ekDetay: {
+        aracTipi: kullaniciKaydi.arac_tipi,
+        ilce: kullaniciKaydi.ilce
+      }
+    }).catch((err) => {
+      console.warn('Kurye kayıt hukuki damga uyarısı:', err);
+    });
   }
 
   // Canlı Firebase aktifse Firestore'a kaydet

@@ -7,6 +7,7 @@ import {
   belgeSil
 } from '@/src/veritabani/FirebaseKoleksiyonServisi';
 import { patronBildirimiEkle } from './PatronBildirimServisi';
+import { hukukiDelilDamgala } from './HukukVeSozlesmeler/hukukiDelilServisi';
 
 export const BASLANGIC_HAKEDIS_TALEPLERI: HakedisCekimTalebi[] = [];
 
@@ -76,6 +77,23 @@ export function useCanliHakedisTalepleri() {
         `${yeni.mutfak_adi || 'Mutfak / Kurye'} tarafından ${yeni.tutar} ₺ hakediş çekim talebi iletildi.`,
         yeni.id
       );
+      hukukiDelilDamgala({
+        sozlesmeTuru: 'kurye_hakedis_odeme_talebi',
+        sozlesmeVersiyonu: '1.0.0',
+        islemTuru: 'hakedis',
+        onaylandiMi: true,
+        ilgiliKayitId: yeni.id,
+        kullaniciKimlik: yeni.kurye_id || yeni.mutfak_id || '',
+        kullaniciAdSoyad: yeni.kurye_adi || yeni.mutfak_adi || '',
+        ekDetay: {
+          tutar: Number(yeni.tutar ?? 0),
+          rolTipi: yeni.rol_tipi || 'kurye',
+          bankaAdi: yeni.banka_adi || '',
+          ibanSon4: String(yeni.iban || '').slice(-4)
+        }
+      }).catch((err) => {
+        console.warn('Hakediş talebi hukuki damga uyarısı:', err);
+      });
       return true;
     } catch (err) {
       console.warn('Yeni hakediş talebi kaydetme hatası:', err);

@@ -21,7 +21,10 @@ import { KuryeQrTarayiciModali } from '../Bilesenler/QrTeslimat/KuryeQrTarayiciM
 import { KuryeHaritaModali } from '../Bilesenler/KuryeTeslimat/KuryeHaritaModali';
 import { QrCode } from 'lucide-react';
 import { useKuryeCanliPaketler } from '@/src/MalzemeCekmeceleri/KuryeTeslimat/useKuryeCanliPaketler';
+import { useKuryeSubeSiparisleri } from '@/src/MalzemeCekmeceleri/KuryeTeslimat/useKuryeSubeSiparisleri';
 import { KuryePaketKarti } from '../Bilesenler/KuryeTeslimat/KuryePaketKarti';
+import { SubeSiparisKarti } from '../Bilesenler/KuryeTeslimat/SubeSiparisKarti';
+import { KuryeSozlesmeOnayModali } from '../Bilesenler/KuryeTeslimat/KuryeSozlesmeOnayModali';
 import { useKuryeKonumYayini } from '@/src/MalzemeCekmeceleri/KuryeTeslimat/useKuryeKonumYayini';
 import { useKuryeBildirimleri } from '@/src/MalzemeCekmeceleri/KuryeTeslimat/useKuryeBildirimleri';
 import { KuryeYeniPaketUyarisi } from '../Bilesenler/KuryeTeslimat/KuryeYeniPaketUyarisi';
@@ -35,6 +38,7 @@ export const KuryePaneli: React.FC = () => {
   const [qrTaramaAcik, setQrTaramaAcik] = useState(false);
   const [seciliSiparisKodu, setSeciliSiparisKodu] = useState('');
   const [haritaPaket, setHaritaPaket] = useState<any | null>(null);
+  const [sozlesmeModaliAcik, setSozlesmeModaliAcik] = useState(false);
   const [bilgiMesaji, setBilgiMesaji] = useState('');
 
   const kuryeId = aktifKullanici?.kimlik || aktifKullanici?.id || 'kurye-1';
@@ -50,7 +54,20 @@ export const KuryePaneli: React.FC = () => {
     kuryeTelefon
   );
 
-  const aktifPaketIdleri = aktifPaketler.map(p => p.id || p.siparis_kodu || p.siparisKodu);
+  const {
+    aktifSubeSiparisleri,
+    teslimEdilenSubeSiparisleri,
+    kabulEt: subeKabulEt,
+    teslimAl: subeTeslimAl,
+    teslimEt: subeTeslimEt
+  } = useKuryeSubeSiparisleri(kuryeId, kuryeAdi, kuryeTelefon);
+
+  const aktifPaketIdleri = [
+    ...aktifPaketler.map(p => p.id || p.siparis_kodu || p.siparisKodu),
+    ...aktifSubeSiparisleri
+      .filter((s) => s.kurye_id === kuryeId)
+      .map((s) => s.id)
+  ];
   const { yayinAktif, sonKonum } = useKuryeKonumYayini({
     kuryeId,
     kuryeAdi,
@@ -61,23 +78,50 @@ export const KuryePaneli: React.FC = () => {
     aktifPaketIdleri
   });
 
-  const paketAlVeBildir = async (id: string, tahminiDakika: number = 15) => {
-    const sonuc = await paketiAl(id, tahminiDakika);
-    setBilgiMesaji(sonuc.mesaj);
+  const toplamAktifGorevSayisi = aktifPaketler.length + aktifSubeSiparisleri.length;
+  const tumTeslimEdilenler = [...teslimEdilenSubeSiparisleri, ...teslimEdilenler];
+
+  const mesajGoster = (mesaj: string) => {
+    setBilgiMesaji(mesaj);
     setTimeout(() => setBilgiMesaji(''), 4000);
   };
 
-  const teslimEtVeBildir = async (kod: string, pin: string) => {
-    const sonuc = await teslimEt(kod, pin);
-    setBilgiMesaji(sonuc.mesaj);
-    setTimeout(() => setBilgiMesaji(''), 4000);
+  const paketAlVeBildir = async (id: string, tahminiDakika: number = 15) => {
+    const sonuc = await paketiAl(id, tahminiDakika);
+    mesajGoster(sonuc.mesaj);
+  };
+
+  const teslimEtVeBildir = async (
+    kod: string,
+    pin: string,
+    dogrulamaYontemi?: 'pin' | 'qr'
+  ) => {
+    const sonuc = await teslimEt(kod, pin, dogrulamaYontemi);
+    mesajGoster(sonuc.mesaj);
     return sonuc;
   };
 
   const paketIptalEtVeBildir = async (id: string, gerekce: string, detayNot?: string) => {
     const sonuc = await paketiIptalEt(id, gerekce, detayNot);
-    setBilgiMesaji(sonuc.mesaj);
-    setTimeout(() => setBilgiMesaji(''), 4000);
+    mesajGoster(sonuc.mesaj);
+    return sonuc;
+  };
+
+  const subeKabulEtVeBildir = async (siparisId: string) => {
+    const sonuc = await subeKabulEt(siparisId);
+    mesajGoster(sonuc.mesaj);
+    return sonuc;
+  };
+
+  const subeTeslimAlVeBildir = async (siparisId: string, girilenPin?: string) => {
+    const sonuc = await subeTeslimAl(siparisId, girilenPin);
+    mesajGoster(sonuc.mesaj);
+    return sonuc;
+  };
+
+  const subeTeslimEtVeBildir = async (siparisId: string) => {
+    const sonuc = await subeTeslimEt(siparisId);
+    mesajGoster(sonuc.mesaj);
     return sonuc;
   };
 
@@ -172,6 +216,16 @@ export const KuryePaneli: React.FC = () => {
 
             <button
               type="button"
+              onClick={() => setSozlesmeModaliAcik(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-purple-950/70 hover:bg-purple-900/80 border border-purple-700/60 text-amber-300 text-xs font-bold transition-all cursor-pointer"
+              title="Kurye Taşıma Sözleşmesi ve KVKK Onayı"
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Sözleşme Onayı</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => {
                 cikisYap();
                 panelDegistir('vitrin');
@@ -201,7 +255,7 @@ export const KuryePaneli: React.FC = () => {
             }`}
           >
             <Bike className="w-4 h-4 text-amber-400" />
-            <span>Dağıtım Bekleyen Paketler ({aktifPaketler.length})</span>
+            <span>Dağıtım Bekleyen Paketler ({toplamAktifGorevSayisi})</span>
           </button>
 
           <button
@@ -214,7 +268,7 @@ export const KuryePaneli: React.FC = () => {
             }`}
           >
             <CheckCircle2 className="w-4 h-4 text-amber-400" />
-            <span>Bugün Teslim Edilenler ({teslimEdilenler.length})</span>
+            <span>Bugün Teslim Edilenler ({tumTeslimEdilenler.length})</span>
           </button>
 
           <button
@@ -240,33 +294,46 @@ export const KuryePaneli: React.FC = () => {
         {/* Sekme 1: Aktif Paketler */}
         {aktifSekme === 'aktif_paketler' && (
           <div className="space-y-4">
-            {aktifPaketler.length === 0 ? (
+            {toplamAktifGorevSayisi === 0 ? (
               <div className="p-8 text-center bg-[#180A1F] rounded-2xl border border-purple-900/40 space-y-2">
                 <CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto" />
                 <h3 className="font-bold text-white text-sm">Üzerinizde Bekleyen Paket Yok</h3>
-                <p className="text-xs text-gray-400">Yeni bir sipariş mutfakta hazır olduğunda sevk masasında otomatik görünecektir.</p>
+                <p className="text-xs text-gray-400">Yeni bir sipariş mutfakta veya şubede hazır olduğunda sevk masasında otomatik görünecektir.</p>
               </div>
             ) : (
-              aktifPaketler.map((paket) => (
-                <KuryePaketKarti
-                  key={paket.id}
-                  paket={paket}
-                  kuryeId={kuryeId}
-                  onPaketAl={paketAlVeBildir}
-                  onPaketiTeslimAldi={async (id: string) => {
-                    const sonuc = await paketiTeslimAldiBildir(id);
-                    setBilgiMesaji(sonuc.mesaj);
-                    setTimeout(() => setBilgiMesaji(''), 4000);
-                  }}
-                  onTeslimEt={teslimEtVeBildir}
-                  onPaketiIptalEt={paketIptalEtVeBildir}
-                  onQrAc={(kod: string) => {
-                    setSeciliSiparisKodu(kod);
-                    setQrTaramaAcik(true);
-                  }}
-                  onHaritaAc={(pkt: any) => setHaritaPaket(pkt)}
-                />
-              ))
+              <>
+                {aktifSubeSiparisleri.map((siparis) => (
+                  <SubeSiparisKarti
+                    key={`sube-${siparis.id}`}
+                    siparis={siparis}
+                    kuryeId={kuryeId}
+                    onKabulEt={subeKabulEtVeBildir}
+                    onTeslimAl={subeTeslimAlVeBildir}
+                    onTeslimEt={subeTeslimEtVeBildir}
+                    onHaritaAc={(s) => setHaritaPaket(s)}
+                  />
+                ))}
+
+                {aktifPaketler.map((paket) => (
+                  <KuryePaketKarti
+                    key={paket.id}
+                    paket={paket}
+                    kuryeId={kuryeId}
+                    onPaketAl={paketAlVeBildir}
+                    onPaketiTeslimAldi={async (id: string) => {
+                      const sonuc = await paketiTeslimAldiBildir(id);
+                      mesajGoster(sonuc.mesaj);
+                    }}
+                    onTeslimEt={teslimEtVeBildir}
+                    onPaketiIptalEt={paketIptalEtVeBildir}
+                    onQrAc={(kod: string) => {
+                      setSeciliSiparisKodu(kod);
+                      setQrTaramaAcik(true);
+                    }}
+                    onHaritaAc={(pkt: any) => setHaritaPaket(pkt)}
+                  />
+                ))}
+              </>
             )}
           </div>
         )}
@@ -274,21 +341,26 @@ export const KuryePaneli: React.FC = () => {
         {/* Sekme 2: Teslim Edilenler */}
         {aktifSekme === 'gecmis' && (
           <div className="space-y-3">
-            {teslimEdilenler.length === 0 ? (
+            {tumTeslimEdilenler.length === 0 ? (
               <div className="p-8 text-center bg-[#180A1F] rounded-2xl border border-purple-900/40 space-y-2">
                 <CheckCircle2 className="w-8 h-8 text-purple-400 mx-auto opacity-60" />
                 <h3 className="font-bold text-white text-xs">Bugün Henüz Tamamlanan Teslimat Yok</h3>
                 <p className="text-[11px] text-gray-400">Teslim ettiğiniz paketler bu ekranda primleriyle listelenir.</p>
               </div>
             ) : (
-              teslimEdilenler.map((teslimat: any) => (
+              tumTeslimEdilenler.map((teslimat: any) => (
                 <div
                   key={teslimat.id}
                   className="p-3.5 rounded-2xl bg-[#180A1F] border border-[#3E1646] hover:border-purple-800 transition-all flex justify-between items-center text-xs"
                 >
                   <div>
-                    <span className="font-bold text-white">#{teslimat.siparisKodu || teslimat.id} — {teslimat.musteriAdi || 'Müşteri'}</span>
-                    <p className="text-[11px] text-gray-400 mt-0.5">{teslimat.teslimatAdresiMetni || teslimat.adres || 'Afyonkarahisar'} • (Teslim Edildi)</p>
+                    <span className="font-bold text-white">
+                      {teslimat.sube_adi ? `🏪 ${teslimat.sube_adi} • ` : ''}
+                      #{teslimat.siparis_kodu || teslimat.siparisKodu || teslimat.id} — {teslimat.musteri_adi || teslimat.musteriAdi || 'Müşteri'}
+                    </span>
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      {teslimat.teslimat_adresi_metni || teslimat.teslimatAdresiMetni || teslimat.adres || 'Afyonkarahisar'} • (Teslim Edildi)
+                    </p>
                   </div>
                   <span className="text-emerald-400 font-bold">+45 ₺ Prim</span>
                 </div>
@@ -303,7 +375,7 @@ export const KuryePaneli: React.FC = () => {
             kuryeId={kuryeId}
             kuryeAdi={kuryeAdi}
             aktifKullanici={aktifKullanici}
-            teslimEdilenler={teslimEdilenler}
+            teslimEdilenler={tumTeslimEdilenler}
           />
         )}
 
@@ -314,8 +386,8 @@ export const KuryePaneli: React.FC = () => {
         <KuryeQrTarayiciModali
           siparisKodu={seciliSiparisKodu}
           onKapat={() => setQrTaramaAcik(false)}
-          onTeslimatTamamlandi={async (kod: string, pin: string) => {
-            return await teslimEtVeBildir(kod, pin);
+          onTeslimatTamamlandi={async (kod: string, pin: string, dogrulamaYontemi?: 'pin' | 'qr') => {
+            return await teslimEtVeBildir(kod, pin, dogrulamaYontemi);
           }}
         />
       )}
@@ -326,6 +398,19 @@ export const KuryePaneli: React.FC = () => {
           paket={haritaPaket}
           kuryeKonum={sonKonum}
           onKapat={() => setHaritaPaket(null)}
+        />
+      )}
+
+      {/* Kurye Taşıma Sözleşmesi & KVKK Zaman Damgalı Onay Modalı */}
+      {sozlesmeModaliAcik && (
+        <KuryeSozlesmeOnayModali
+          kuryeId={kuryeId}
+          kuryeAdi={kuryeAdi}
+          kuryeTelefon={kuryeTelefon}
+          onKapat={() => setSozlesmeModaliAcik(false)}
+          onOnayTamamlandi={() => {
+            mesajGoster('Kurye taşıma sözleşmesi ve KVKK onayı zaman damgasıyla mühürlendi.');
+          }}
         />
       )}
     </div>

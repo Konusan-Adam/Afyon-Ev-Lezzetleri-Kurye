@@ -1,17 +1,31 @@
 /**
- * Afyon Ev Lezzetleri — Hukuki Sözleşmeler ve Çerez Yönetimi Tipleri
+ * Afyon Ev Lezzetleri — Hukuki Sözleşmeler, Zaman Damgası ve Çerez Yönetimi Tipleri
  */
 
-export type SozlesmeTuru = 
+export type SozlesmeTuru =
   | 'mesafeli_satis'
   | 'on_bilgilendirme'
   | 'kvkk_aydinlatma'
   | 'kullanici_sozlesmesi'
   | 'cerez_politikasi'
   | 'iptal_iade_kosullari'
+  | 'kurye_kayit_sozlesmesi'
+  | 'kurye_paket_teslim_alma'
+  | 'teslimat_pin_qr_onayi'
+  | 'kurye_hakedis_odeme_talebi'
   | string;
 
 export type SozlesmeKonumu = 'kayit' | 'siparis' | 'asci_basvuru' | 'kurye_basvuru' | 'genel';
+
+export type HukukiIslemTuru =
+  | 'kayit'
+  | 'siparis'
+  | 'cerez_onayi'
+  | 'ozel_onay'
+  | 'teslimat'
+  | 'hakedis';
+
+export type DamgaDurumu = 'rfc3161_onayli' | 'sunucu_muhurlu' | 'yerel_ozet';
 
 export interface HukukiSozlesme {
   tur: SozlesmeTuru;
@@ -29,14 +43,24 @@ export interface HukukiOnayLogu {
   kimlik: string;
   sozlesmeTuru: string;
   sozlesmeVersiyonu: string;
-  kullaniciKimlik?: string;
-  kullaniciTelefon?: string;
-  kullaniciAdSoyad?: string;
-  islemTuru: 'kayit' | 'siparis' | 'cerez_onayi' | 'ozel_onay';
+  islemTuru: HukukiIslemTuru;
   tarihSaat: string;
   ipAdresi: string;
   cihazBilgisi: string;
   onaylandiMi: boolean;
+  sunucuKayitZamani?: unknown;
+  sunucuUtc?: string;
+  ozetHash?: string;
+  sozlesmeMetinHash?: string;
+  tsaSaglayici?: string;
+  tsaTokenBase64?: string;
+  damgaDurumu?: DamgaDurumu;
+  sunucuImzasi?: string;
+  ilgiliKayitId?: string;
+  kullaniciKimlik?: string;
+  kullaniciTelefon?: string;
+  kullaniciAdSoyad?: string;
+  ekDetay?: Record<string, unknown>;
 }
 
 export interface CerezTercihleri {

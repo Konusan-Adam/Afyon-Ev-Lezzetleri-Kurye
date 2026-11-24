@@ -16,7 +16,7 @@ export interface KuryePaketKartiProps {
   kuryeId: string;
   onPaketAl: (id: string, tahminiDakika?: number) => Promise<void> | void;
   onPaketiTeslimAldi: (id: string) => Promise<void> | void;
-  onTeslimEt: (kod: string, pin: string) => Promise<any>;
+  onTeslimEt: (kod: string, pin: string, dogrulamaYontemi?: 'pin' | 'qr') => Promise<any>;
   onPaketiIptalEt?: (id: string, gerekce: string, detayNot?: string) => Promise<any>;
   onQrAc: (kod: string) => void;
   onHaritaAc: (pkt: any) => void;
@@ -69,7 +69,7 @@ export const KuryePaketKarti: React.FC<KuryePaketKartiProps> = ({
     setIslemde(true);
     setHataMesaji('');
     try {
-      const res = await onTeslimEt(siparisKodu, pinGirdisi.trim());
+      const res = await onTeslimEt(siparisKodu, pinGirdisi.trim(), 'pin');
       if (res && !res.basarili) {
         setHataMesaji(res.mesaj || 'PIN doğrulanamadı.');
       }
