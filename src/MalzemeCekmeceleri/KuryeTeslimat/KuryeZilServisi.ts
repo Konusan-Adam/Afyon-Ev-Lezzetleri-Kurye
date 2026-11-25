@@ -1,7 +1,21 @@
 import { sekmeAlarmiBaslat } from '@/src/MalzemeCekmeceleri/SekmeAlarmi';
+import {
+  androidOrtamiMi,
+  androidSesliAlarmCal,
+  androidTitre
+} from '@/src/MalzemeCekmeceleri/AndroidKopru/AndroidKopruServisi';
 
 // Kurye Dağıtım Masası Sesli Korna/Zil ve Masaüstü/Telefon Bildirim Servisi
 export const kuryeZiliCal = (baslik?: string, detay?: string) => {
+  // 0. Android APK içinde çalışıyorsa donanım titreşimi + yüksek öncelikli alarm tetikle
+  if (androidOrtamiMi()) {
+    androidTitre(600);
+    androidSesliAlarmCal(
+      baslik || 'Yeni Paket Dağıtıma Hazır!',
+      detay || 'Mutfakta veya şubede paketlenen yeni sipariş kurye bekliyor.'
+    );
+  }
+
   // 1. Sekme Başlığı Yanıp Sönen Alarm (Kullanıcı başka sekmede veya haritadaysa)
   sekmeAlarmiBaslat('🛵 (1) YENİ PAKET HAZIR!');
 

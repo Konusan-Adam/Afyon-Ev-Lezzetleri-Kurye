@@ -21,7 +21,7 @@
     transition: background-color 0.3s ease, color 0.3s ease;
   }
   
-  h1, h2, h3, .font-serif-display {
+  h1:not(.font-sans), h2:not(.font-sans), h3:not(.font-sans), .font-serif-display {
     font-family: 'Cormorant Garamond', Georgia, serif;
   }
 }
@@ -78,19 +78,27 @@ html.acik-tema h4:not([class*="text-amber"]) {
 
 /* Custom subtle scrollbars */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #F3ECE2;
+  background: #120416;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #D4C3B3;
-  border-radius: 4px;
+  background: #4B1D55;
+  border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #8B1E10;
+  background: #6D237A;
+}
+
+html.acik-tema ::-webkit-scrollbar-track {
+  background: #F3ECE2;
+}
+
+html.acik-tema ::-webkit-scrollbar-thumb {
+  background: #D4C3B3;
 }

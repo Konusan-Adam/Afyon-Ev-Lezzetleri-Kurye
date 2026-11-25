@@ -101,17 +101,17 @@ export const KuryePaketKarti: React.FC<KuryePaketKartiProps> = ({
   };
 
   return (
-    <div className="bg-[#180A1F] border border-[#3E1646] hover:border-purple-700/60 rounded-2xl p-4 sm:p-5 transition-all shadow-md">
+    <div className="bg-[#1D0A20] border border-[#3E1646] hover:border-purple-700/80 rounded-2xl p-4 sm:p-5 transition-all shadow-md font-sans">
       {/* Kart Üst Başlık */}
-      <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-purple-900/50">
+      <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-purple-900/70">
         <div className="flex items-center gap-2">
-          <span className="text-amber-400 font-black text-sm">#{siparisKodu}</span>
-          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
+          <span className="text-amber-400 font-mono font-bold text-sm">#{siparisKodu}</span>
+          <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-semibold border ${
             benimUzerimde
               ? mutfaktanAlindi
-                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                : 'bg-purple-500/20 text-purple-300 border-purple-500/40'
-              : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                : 'bg-purple-500/15 text-purple-300 border-purple-500/30'
+              : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
           }`}>
             {benimUzerimde
               ? mutfaktanAlindi
@@ -121,31 +121,31 @@ export const KuryePaketKarti: React.FC<KuryePaketKartiProps> = ({
           </span>
         </div>
 
-        <span className="text-sm font-black text-emerald-400">
+        <span className="text-sm font-black font-mono text-emerald-400">
           {toplamTutar} ₺
         </span>
       </div>
 
       {/* Adres ve Bilgiler */}
       <div className="py-3 space-y-2 text-xs">
-        <div className="flex items-start gap-2 text-purple-200">
+        <div className="flex items-start gap-2.5 text-purple-100">
           <Store className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
           <div>
             <span className="font-semibold text-white">{mutfakAdi}</span>
-            <p className="text-[11px] text-purple-400">Mutfak Hazırladı</p>
+            <p className="text-[11px] text-purple-200/70">Mutfak Hazırladı</p>
           </div>
         </div>
 
-        <div className="flex items-start gap-2 text-gray-300">
+        <div className="flex items-start gap-2.5 text-purple-100">
           <MapPin className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
           <div>
             <span className="font-semibold text-white">{musteriAdi}</span>
-            <p className="text-[11px] text-gray-300 leading-relaxed mt-0.5">{teslimatAdresi}</p>
+            <p className="text-[11px] text-purple-200/70 leading-relaxed mt-0.5">{teslimatAdresi}</p>
           </div>
         </div>
 
         {paket.siparis_notu && (
-          <div className="p-2 rounded-xl bg-purple-950/40 border border-purple-900/30 text-[11px] text-amber-200/90 italic">
+          <div className="p-2.5 rounded-xl bg-[#120614] border border-purple-900/70 text-[11px] text-amber-300/90 italic">
             Not: &quot;{paket.siparis_notu}&quot;
           </div>
         )}
@@ -159,15 +159,15 @@ export const KuryePaketKarti: React.FC<KuryePaketKartiProps> = ({
       )}
 
       {/* Aksiyon Butonları */}
-      <div className="pt-2 border-t border-purple-900/50 flex flex-wrap gap-2 items-center justify-between">
+      <div className="pt-2 border-t border-purple-900/70 flex flex-wrap gap-2 items-center justify-between">
         {!benimUzerimde ? (
           <div className="w-full space-y-2">
-            <div className="flex items-center justify-between gap-2 text-[11px] text-purple-200">
+            <div className="flex items-center justify-between gap-2 text-[11px] text-purple-200/80">
               <span>Mutfağa tahmini varış süresi:</span>
               <select
                 value={tahminiDakika}
                 onChange={(e) => setTahminiDakika(Number(e.target.value))}
-                className="bg-[#100313] border border-purple-800 rounded-lg px-2 py-1 text-xs text-amber-300 font-bold focus:outline-none focus:border-amber-400"
+                className="bg-[#120614] border border-purple-900 rounded-lg px-2.5 py-1 text-xs text-amber-300 font-bold focus:outline-none focus:border-amber-400 cursor-pointer"
               >
                 <option value={10}>10 dk</option>
                 <option value={15}>15 dk</option>
@@ -178,7 +178,7 @@ export const KuryePaketKarti: React.FC<KuryePaketKartiProps> = ({
             <button
               type="button"
               onClick={() => onPaketAl(paket.id || siparisKodu, tahminiDakika)}
-              className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 text-black font-black text-xs shadow-md shadow-amber-500/20 flex items-center justify-center gap-2 cursor-pointer transition-all"
+              className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 text-[#18071C] font-black text-xs shadow-md shadow-amber-500/20 flex items-center justify-center gap-2 cursor-pointer transition-all"
             >
               <Bike className="w-4 h-4" />
               <span>Paketi Üzerime Al 🛵</span>
@@ -198,7 +198,7 @@ export const KuryePaketKarti: React.FC<KuryePaketKartiProps> = ({
               <button
                 type="button"
                 onClick={() => setIptalPaneliAcik(!iptalPaneliAcik)}
-                className="w-full py-2 px-3 rounded-xl bg-rose-950/50 hover:bg-rose-900/70 border border-rose-800/50 text-rose-300 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                className="w-full py-2 px-3 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/40 text-rose-300 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all"
               >
                 <XCircle className="w-3.5 h-3.5" />
                 <span>Siparişi İptal Et</span>
@@ -212,7 +212,7 @@ export const KuryePaketKarti: React.FC<KuryePaketKartiProps> = ({
               <button
                 type="button"
                 onClick={() => onHaritaAc(paket)}
-                className="py-2 px-3 rounded-xl bg-[#2D1233] hover:bg-purple-900/80 border border-purple-800 text-purple-200 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                className="py-2.5 px-3 rounded-xl bg-[#260E2A] hover:bg-[#321238] border border-[#4B1D55] text-purple-100 font-semibold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all"
               >
                 <Navigation className="w-3.5 h-3.5 text-amber-400" />
                 <span>Harita</span>
@@ -221,7 +221,7 @@ export const KuryePaketKarti: React.FC<KuryePaketKartiProps> = ({
               {musteriTelefon ? (
                 <a
                   href={`tel:${musteriTelefon}`}
-                  className="py-2 px-3 rounded-xl bg-[#2D1233] hover:bg-purple-900/80 border border-purple-800 text-purple-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-all text-center"
+                  className="py-2.5 px-3 rounded-xl bg-[#260E2A] hover:bg-[#321238] border border-[#4B1D55] text-purple-100 font-semibold text-xs flex items-center justify-center gap-1.5 transition-all text-center"
                 >
                   <Phone className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Ara</span>
@@ -230,7 +230,7 @@ export const KuryePaketKarti: React.FC<KuryePaketKartiProps> = ({
                 <button
                   type="button"
                   disabled
-                  className="py-2 px-3 rounded-xl bg-black/40 text-gray-500 border border-purple-900/40 text-xs flex items-center justify-center gap-1.5 cursor-not-allowed"
+                  className="py-2.5 px-3 rounded-xl bg-[#140616] text-purple-300/40 border border-purple-900/50 text-xs flex items-center justify-center gap-1.5 cursor-not-allowed"
                 >
                   <Phone className="w-3.5 h-3.5" />
                   <span>No Yok</span>
@@ -240,7 +240,7 @@ export const KuryePaketKarti: React.FC<KuryePaketKartiProps> = ({
               <button
                 type="button"
                 onClick={() => onQrAc(siparisKodu)}
-                className="py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-700 to-emerald-600 hover:from-emerald-600 text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-sm transition-all"
+                className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-sm transition-all"
               >
                 <QrCode className="w-3.5 h-3.5" />
                 <span>QR Tara</span>
@@ -257,13 +257,13 @@ export const KuryePaketKarti: React.FC<KuryePaketKartiProps> = ({
                   value={pinGirdisi}
                   onChange={(e) => setPinGirdisi(e.target.value)}
                   placeholder="Müşteri PIN Kodu"
-                  className="w-full bg-[#100313] border border-purple-900/60 rounded-xl pl-8 pr-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-400 font-mono tracking-wider"
+                  className="w-full bg-[#120614] border border-purple-900 rounded-xl pl-8 pr-3 py-2 text-xs text-white placeholder-purple-300/40 focus:outline-none focus:border-amber-400 font-mono tracking-wider"
                 />
               </div>
               <button
                 type="submit"
                 disabled={islemde}
-                className="py-2 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-black text-xs transition-all cursor-pointer whitespace-nowrap disabled:opacity-50"
+                className="py-2 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-[#18071C] font-black text-xs transition-all cursor-pointer whitespace-nowrap disabled:opacity-50"
               >
                 {islemde ? 'Doğrulanıyor...' : 'Teslim Et'}
               </button>
@@ -273,7 +273,7 @@ export const KuryePaketKarti: React.FC<KuryePaketKartiProps> = ({
               <button
                 type="button"
                 onClick={() => setIptalPaneliAcik(!iptalPaneliAcik)}
-                className="w-full py-2 px-3 rounded-xl bg-rose-950/50 hover:bg-rose-900/70 border border-rose-800/50 text-rose-300 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                className="w-full py-2 px-3 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/40 text-rose-300 font-semibold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all"
               >
                 <XCircle className="w-3.5 h-3.5" />
                 <span>Teslimatı İptal Et</span>
@@ -284,12 +284,12 @@ export const KuryePaketKarti: React.FC<KuryePaketKartiProps> = ({
 
         {/* Kurye İptal Formu */}
         {iptalPaneliAcik && onPaketiIptalEt && (
-          <form onSubmit={handleKuryeIptal} className="w-full mt-2 p-3 rounded-xl bg-rose-950/40 border border-rose-800/60 space-y-2">
+          <form onSubmit={handleKuryeIptal} className="w-full mt-2 p-3.5 rounded-xl bg-rose-950/30 border border-rose-900/50 space-y-2.5">
             <label className="block text-[11px] font-bold text-rose-200">İptal Gerekçesi</label>
             <select
               value={iptalGerekcesi}
               onChange={(e) => setIptalGerekcesi(e.target.value)}
-              className="w-full bg-[#100313] border border-rose-900/60 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-rose-400"
+              className="w-full bg-[#120614] border border-rose-900/60 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-rose-400"
             >
               {KURYE_IPTAL_GEREKCELERI.map((g) => (
                 <option key={g} value={g}>{g}</option>
@@ -300,20 +300,20 @@ export const KuryePaketKarti: React.FC<KuryePaketKartiProps> = ({
               value={iptalNotu}
               onChange={(e) => setIptalNotu(e.target.value)}
               placeholder="İsteğe bağlı açıklama..."
-              className="w-full bg-[#100313] border border-rose-900/60 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-rose-400"
+              className="w-full bg-[#120614] border border-rose-900/60 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-purple-300/40 focus:outline-none focus:border-rose-400"
             />
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => setIptalPaneliAcik(false)}
-                className="flex-1 py-1.5 px-3 rounded-lg bg-black/40 text-gray-300 text-xs font-bold cursor-pointer"
+                className="flex-1 py-1.5 px-3 rounded-lg bg-[#260E2A] hover:bg-[#321238] border border-[#4B1D55] text-purple-100 text-xs font-semibold cursor-pointer"
               >
                 Vazgeç
               </button>
               <button
                 type="submit"
                 disabled={islemde}
-                className="flex-1 py-1.5 px-3 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-black cursor-pointer disabled:opacity-50"
+                className="flex-1 py-1.5 px-3 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold cursor-pointer disabled:opacity-50"
               >
                 {islemde ? 'İptal Ediliyor...' : 'İptali Onayla'}
               </button>

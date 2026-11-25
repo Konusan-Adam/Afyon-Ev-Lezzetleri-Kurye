@@ -89,21 +89,21 @@ export const SubeSiparisKarti: React.FC<SubeSiparisKartiProps> = ({
   };
 
   return (
-    <div className="bg-[#180A1F] border border-emerald-700/50 hover:border-emerald-500/70 rounded-2xl p-4 sm:p-5 transition-all shadow-md">
+    <div className="bg-[#1D0A20] border border-emerald-500/35 hover:border-emerald-400/60 rounded-2xl p-4 sm:p-5 transition-all shadow-md font-sans">
       {/* Üst Başlık */}
-      <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-purple-900/50">
+      <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-purple-900/70">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[10px] px-2 py-0.5 rounded-full font-black bg-emerald-950/90 text-emerald-300 border border-emerald-500/40">
+          <span className="text-[10px] px-2.5 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
             🏪 Şube Siparişi
           </span>
-          <span className="text-amber-400 font-black text-sm">#{siparisKodu}</span>
+          <span className="text-amber-400 font-mono font-bold text-sm">#{siparisKodu}</span>
           <span
-            className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
+            className={`text-[10px] px-2.5 py-0.5 rounded-full font-semibold border ${
               benimUzerimde
                 ? yoldaMi
-                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                  : 'bg-purple-500/20 text-purple-300 border-purple-500/40'
-                : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                  ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                  : 'bg-purple-500/15 text-purple-300 border-purple-500/30'
+                : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
             }`}
           >
             {benimUzerimde
@@ -116,13 +116,13 @@ export const SubeSiparisKarti: React.FC<SubeSiparisKartiProps> = ({
 
         <div className="flex items-center gap-2">
           {pinKodu && (
-            <span className="px-2.5 py-1 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 font-mono font-black text-xs flex items-center gap-1">
+            <span className="px-2.5 py-1 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 font-mono font-bold text-xs flex items-center gap-1">
               <KeyRound className="w-3 h-3" />
               <span>PIN: {pinKodu}</span>
             </span>
           )}
           {typeof siparis.toplam_tutar === 'number' && siparis.toplam_tutar > 0 && (
-            <span className="text-sm font-black text-emerald-400">
+            <span className="text-sm font-black font-mono text-emerald-400">
               {siparis.toplam_tutar} ₺
             </span>
           )}
@@ -131,25 +131,25 @@ export const SubeSiparisKarti: React.FC<SubeSiparisKartiProps> = ({
 
       {/* Şube ve Müşteri Adres Bilgileri */}
       <div className="py-3 space-y-2 text-xs">
-        <div className="flex items-start gap-2 text-purple-200">
+        <div className="flex items-start gap-2.5 text-purple-100">
           <Store className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
           <div>
             <span className="font-semibold text-white">{subeAdi}</span>
-            <p className="text-[11px] text-purple-400">Teslim Alınacak Şube</p>
+            <p className="text-[11px] text-purple-200/70">Teslim Alınacak Şube</p>
           </div>
         </div>
 
-        <div className="flex items-start gap-2 text-gray-300">
+        <div className="flex items-start gap-2.5 text-purple-100">
           <MapPin className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
           <div>
             <span className="font-semibold text-white">{musteriAdi}</span>
-            <p className="text-[11px] text-gray-300 leading-relaxed mt-0.5">{teslimatAdresi}</p>
+            <p className="text-[11px] text-purple-200/70 leading-relaxed mt-0.5">{teslimatAdresi}</p>
           </div>
         </div>
 
         {Array.isArray(siparis.urunler) && siparis.urunler.length > 0 && (
-          <div className="p-2 rounded-xl bg-[#110416] border border-purple-900/40 text-[11px] text-gray-300">
-            <span className="text-purple-300 font-semibold">Ürünler: </span>
+          <div className="p-2.5 rounded-xl bg-[#120614] border border-purple-900/70 text-[11px] text-purple-100">
+            <span className="text-emerald-400 font-semibold">Ürünler: </span>
             {siparis.urunler
               .map((u) => `${u.adet ?? u.miktar ?? 1}x ${u.urun_adi || u.ad || u.urun_id || 'Ürün'}`)
               .join(', ')}
@@ -157,7 +157,7 @@ export const SubeSiparisKarti: React.FC<SubeSiparisKartiProps> = ({
         )}
 
         {siparis.siparis_notu && (
-          <div className="p-2 rounded-xl bg-purple-950/40 border border-purple-900/30 text-[11px] text-amber-200/90 italic">
+          <div className="p-2.5 rounded-xl bg-[#120614] border border-purple-900/70 text-[11px] text-amber-300/90 italic">
             Not: &quot;{siparis.siparis_notu}&quot;
           </div>
         )}
@@ -170,13 +170,13 @@ export const SubeSiparisKarti: React.FC<SubeSiparisKartiProps> = ({
       )}
 
       {/* Aksiyon Alanı */}
-      <div className="pt-2 border-t border-purple-900/50 space-y-2">
+      <div className="pt-2 border-t border-purple-900/70 space-y-2">
         {!benimUzerimde ? (
           <button
             type="button"
             disabled={islemde}
             onClick={handleKabulEt}
-            className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 text-black font-black text-xs shadow-md shadow-amber-500/20 flex items-center justify-center gap-2 cursor-pointer transition-all disabled:opacity-50"
+            className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 text-[#18071C] font-black text-xs shadow-md shadow-amber-500/20 flex items-center justify-center gap-2 cursor-pointer transition-all disabled:opacity-50"
           >
             <Bike className="w-4 h-4" />
             <span>{islemde ? 'Kabul Ediliyor...' : 'İşi Kabul Et (Şubeye Git) 🛵'}</span>
@@ -191,7 +191,7 @@ export const SubeSiparisKarti: React.FC<SubeSiparisKartiProps> = ({
                 value={pinGirdisi}
                 onChange={(e) => setPinGirdisi(e.target.value)}
                 placeholder="İsteğe bağlı PIN doğrulama (boş bırakılabilir)"
-                className="w-full bg-[#100313] border border-purple-900/60 rounded-xl pl-8 pr-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-400 font-mono tracking-wider"
+                className="w-full bg-[#120614] border border-purple-900 rounded-xl pl-8 pr-3 py-2 text-xs text-white placeholder-purple-300/40 focus:outline-none focus:border-amber-400 font-mono tracking-wider"
               />
             </div>
             <button
@@ -209,7 +209,7 @@ export const SubeSiparisKarti: React.FC<SubeSiparisKartiProps> = ({
               <button
                 type="button"
                 onClick={() => onHaritaAc(siparis)}
-                className="py-2 px-3 rounded-xl bg-[#2D1233] hover:bg-purple-900/80 border border-purple-800 text-purple-200 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                className="py-2.5 px-3 rounded-xl bg-[#260E2A] hover:bg-[#321238] border border-[#4B1D55] text-purple-100 font-semibold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all"
               >
                 <Navigation className="w-3.5 h-3.5 text-amber-400" />
                 <span>Harita</span>
@@ -218,7 +218,7 @@ export const SubeSiparisKarti: React.FC<SubeSiparisKartiProps> = ({
               {musteriTelefon ? (
                 <a
                   href={`tel:${musteriTelefon}`}
-                  className="py-2 px-3 rounded-xl bg-[#2D1233] hover:bg-purple-900/80 border border-purple-800 text-purple-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-all text-center"
+                  className="py-2.5 px-3 rounded-xl bg-[#260E2A] hover:bg-[#321238] border border-[#4B1D55] text-purple-100 font-semibold text-xs flex items-center justify-center gap-1.5 transition-all text-center"
                 >
                   <Phone className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Müşteriyi Ara</span>
@@ -227,7 +227,7 @@ export const SubeSiparisKarti: React.FC<SubeSiparisKartiProps> = ({
                 <button
                   type="button"
                   disabled
-                  className="py-2 px-3 rounded-xl bg-black/40 text-gray-500 border border-purple-900/40 text-xs flex items-center justify-center gap-1.5 cursor-not-allowed"
+                  className="py-2.5 px-3 rounded-xl bg-[#140616] text-purple-300/40 border border-purple-900/50 text-xs flex items-center justify-center gap-1.5 cursor-not-allowed"
                 >
                   <Phone className="w-3.5 h-3.5" />
                   <span>No Yok</span>
@@ -239,7 +239,7 @@ export const SubeSiparisKarti: React.FC<SubeSiparisKartiProps> = ({
               type="button"
               disabled={islemde}
               onClick={handleTeslimEt}
-              className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 text-black font-black text-xs shadow-md shadow-emerald-500/20 flex items-center justify-center gap-2 cursor-pointer transition-all disabled:opacity-50"
+              className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-md shadow-emerald-500/20 flex items-center justify-center gap-2 cursor-pointer transition-all disabled:opacity-50"
             >
               <CheckCircle2 className="w-4 h-4" />
               <span>{islemde ? 'Tamamlanıyor...' : 'Müşteriye Teslim Et ✅'}</span>

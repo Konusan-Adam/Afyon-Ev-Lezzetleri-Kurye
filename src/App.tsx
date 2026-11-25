@@ -19,7 +19,7 @@ export default function App() {
               <OrtakSepetSaglayici>
                 <OzelOzelliklerSaglayici>
                   <OnSiparisSaglayici>
-                    <main className="min-h-screen bg-stone-50">
+                    <main className="min-h-screen bg-[#0C020E]">
                       <KuryePaneli />
                     </main>
                   </OnSiparisSaglayici>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, QrCode, KeyRound, Flashlight, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import { X, QrCode, KeyRound, Flashlight, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useCanliKameraTarayici } from '@/src/MalzemeCekmeceleri/QrTeslimat/useCanliKameraTarayici';
 
 export interface KuryeQrTarayiciModaliProps {
@@ -82,33 +82,33 @@ export const KuryeQrTarayiciModali: React.FC<KuryeQrTarayiciModaliProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200 font-sans">
       <div className="w-full max-w-md bg-[#16061B] border-2 border-purple-800 rounded-3xl overflow-hidden shadow-2xl flex flex-col">
         {/* Başlık */}
         <div className="px-5 py-4 bg-[#260B2E] border-b border-purple-800/60 flex items-center justify-between text-white">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center">
               <QrCode className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-black text-sm text-amber-300">
-                Müşteri QR & PIN Teslimat Doğrulama
+              <h3 className="font-sans font-bold text-sm text-amber-300">
+                Teslimat Doğrulama
               </h3>
-              <p className="text-[11px] text-gray-400">Sipariş: #{siparisKodu}</p>
+              <p className="text-[11px] text-purple-200/75">Sipariş: #{siparisKodu}</p>
             </div>
           </div>
 
           <button
             type="button"
             onClick={onKapat}
-            className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white transition-colors"
+            className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-purple-200 hover:text-white transition-colors cursor-pointer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Kamera ve Tarayıcı Alanı */}
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-3.5">
           <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-black border border-purple-900/60 flex items-center justify-center">
             <video
               ref={videoRef}
@@ -133,9 +133,9 @@ export const KuryeQrTarayiciModali: React.FC<KuryeQrTarayiciModaliProps> = ({
 
             {/* Durum / Hata Overlay */}
             {kameraDurumu === 'hata' && (
-              <div className="absolute inset-0 bg-black/90 p-4 flex flex-col items-center justify-center text-center text-rose-300 text-xs">
-                <AlertCircle className="w-8 h-8 mb-2" />
-                <p>{hataMesaji || 'Kamera açılamadı. Lütfen aşağıdaki alandan PIN kodunu manuel giriniz.'}</p>
+              <div className="absolute inset-0 bg-[#100313]/95 p-4 flex flex-col items-center justify-center text-center text-rose-200 text-xs">
+                <AlertCircle className="w-8 h-8 text-amber-400 mb-2" />
+                <p>{hataMesaji || 'Kamera açılamadı. PIN kodunu aşağıdaki alandan manuel girebilirsiniz.'}</p>
               </div>
             )}
 
@@ -144,7 +144,7 @@ export const KuryeQrTarayiciModali: React.FC<KuryeQrTarayiciModaliProps> = ({
               <button
                 type="button"
                 onClick={feneriDegistir}
-                className={`absolute top-3 right-3 p-2 rounded-xl backdrop-blur-md transition-all ${
+                className={`absolute top-3 right-3 p-2 rounded-xl backdrop-blur-md transition-all cursor-pointer ${
                   fenerAcik ? 'bg-amber-500 text-black' : 'bg-black/60 text-white hover:bg-black/80'
                 }`}
                 title="Feneri Aç/Kapat"
@@ -159,8 +159,8 @@ export const KuryeQrTarayiciModali: React.FC<KuryeQrTarayiciModaliProps> = ({
             <div
               className={`p-3 rounded-xl border text-xs font-bold flex items-center gap-2 ${
                 durumMesaji.tip === 'basari'
-                  ? 'bg-emerald-950/90 border-emerald-500 text-emerald-200'
-                  : 'bg-rose-950/90 border-rose-500 text-rose-200'
+                  ? 'bg-emerald-950/85 border-emerald-500/50 text-emerald-200'
+                  : 'bg-rose-950/85 border-rose-500/50 text-rose-200'
               }`}
             >
               {durumMesaji.tip === 'basari' ? (
@@ -174,9 +174,9 @@ export const KuryeQrTarayiciModali: React.FC<KuryeQrTarayiciModaliProps> = ({
 
           {/* Manuel PIN Girişi */}
           <div className="bg-[#210926] p-3.5 rounded-2xl border border-purple-900/60 space-y-2">
-            <span className="text-[11px] font-bold text-gray-300 flex items-center gap-1.5">
+            <span className="text-[11px] font-semibold text-purple-100 flex items-center gap-1.5">
               <KeyRound className="w-3.5 h-3.5 text-amber-400" />
-              Kamera Çalışmıyorsa 4 Haneli Müşteri PIN Kodunu Girin:
+              Müşteri PIN Kodu:
             </span>
             <form onSubmit={handleManuelGonder} className="flex gap-2">
               <input
@@ -185,12 +185,12 @@ export const KuryeQrTarayiciModali: React.FC<KuryeQrTarayiciModaliProps> = ({
                 value={manuelPin}
                 onChange={(e) => setManuelPin(e.target.value)}
                 placeholder="Örn: 4821"
-                className="flex-1 bg-[#100313] border border-purple-800 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 font-mono focus:outline-none focus:border-amber-400"
+                className="flex-1 bg-[#100313] border border-purple-800 rounded-xl px-3 py-2 text-xs text-white placeholder-purple-400/50 font-mono focus:outline-none focus:border-amber-400 transition-colors"
               />
               <button
                 type="submit"
                 disabled={isleniyor || !manuelPin.trim()}
-                className="py-2 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-black text-xs transition-all cursor-pointer disabled:opacity-50"
+                className="py-2 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-[#180A1F] font-black text-xs transition-all cursor-pointer disabled:opacity-50"
               >
                 Onayla
               </button>

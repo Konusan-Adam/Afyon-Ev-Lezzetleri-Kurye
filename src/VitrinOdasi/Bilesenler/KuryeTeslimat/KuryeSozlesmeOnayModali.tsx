@@ -61,18 +61,18 @@ export const KuryeSozlesmeOnayModali: React.FC<KuryeSozlesmeOnayModaliProps> = (
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
-      <div className="w-full max-w-2xl bg-[#16061B] border-2 border-purple-800 rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md font-sans">
+      <div className="w-full max-w-2xl bg-[#16061B] border-2 border-[#4B1D55] rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
         <div className="px-5 py-4 bg-[#260B2E] border-b border-purple-800/60 flex items-center justify-between text-white">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-amber-500 text-black flex items-center justify-center">
               <ShieldCheck className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-black text-sm text-amber-300">
-                Kurye Kayıt, Taşıma Sözleşmesi ve KVKK Onayı
+              <h3 className="font-sans font-bold text-sm text-amber-300">
+                Kurye Taşıma Sözleşmesi ve KVKK Onayı
               </h3>
-              <p className="text-[11px] text-gray-400">
+              <p className="text-[11px] text-purple-200/75">
                 RFC 3161 + SHA-256 Zaman Damgalı Hukuki Delil Kaydı
               </p>
             </div>
@@ -80,13 +80,13 @@ export const KuryeSozlesmeOnayModali: React.FC<KuryeSozlesmeOnayModaliProps> = (
           <button
             type="button"
             onClick={onKapat}
-            className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white transition-colors cursor-pointer"
+            className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-purple-200 hover:text-white transition-colors cursor-pointer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        <form onSubmit={handleOnaylaVeDamgala} className="p-5 overflow-y-auto space-y-4 text-xs text-gray-200">
+        <form onSubmit={handleOnaylaVeDamgala} className="p-5 overflow-y-auto space-y-4 text-xs text-purple-100">
           {/* Kurye Taşıma Sözleşmesi */}
           <div className="p-3.5 rounded-2xl bg-[#110415] border border-purple-900/60 space-y-2">
             <div className="flex items-center justify-between">
@@ -94,9 +94,9 @@ export const KuryeSozlesmeOnayModali: React.FC<KuryeSozlesmeOnayModaliProps> = (
                 <FileText className="w-3.5 h-3.5" />
                 {kuryeSozlesmesi?.baslik || 'Kurye Taşıma ve Bağımsız Hizmet Sözleşmesi'}
               </span>
-              <span className="text-[10px] text-purple-300">v{kuryeSozlesmesi?.versiyon || '1.0.0'}</span>
+              <span className="text-[10px] text-purple-300 font-mono">v{kuryeSozlesmesi?.versiyon || '1.0.0'}</span>
             </div>
-            <pre className="whitespace-pre-wrap font-sans text-[11px] text-gray-300 max-h-36 overflow-y-auto leading-relaxed bg-black/30 p-2.5 rounded-xl border border-purple-950">
+            <pre className="whitespace-pre-wrap font-sans text-[11px] text-purple-100/85 max-h-36 overflow-y-auto leading-relaxed bg-black/30 p-2.5 rounded-xl border border-purple-950">
               {kuryeSozlesmesi?.icerik}
             </pre>
             <label className="flex items-center gap-2 cursor-pointer pt-1 text-white font-semibold">
@@ -104,7 +104,7 @@ export const KuryeSozlesmeOnayModali: React.FC<KuryeSozlesmeOnayModaliProps> = (
                 type="checkbox"
                 checked={tasimaOnayli}
                 onChange={(e) => setTasimaOnayli(e.target.checked)}
-                className="accent-amber-500 w-4 h-4"
+                className="accent-amber-500 w-4 h-4 rounded"
               />
               <span>Kurye Taşıma ve Bağımsız Hizmet Sözleşmesini okudum, kabul ediyorum.</span>
             </label>
@@ -117,9 +117,9 @@ export const KuryeSozlesmeOnayModali: React.FC<KuryeSozlesmeOnayModaliProps> = (
                 <FileText className="w-3.5 h-3.5" />
                 {kvkkSozlesmesi?.baslik || 'KVKK Aydınlatma ve Açık Rıza Metni'}
               </span>
-              <span className="text-[10px] text-purple-300">v{kvkkSozlesmesi?.versiyon || '1.0.0'}</span>
+              <span className="text-[10px] text-purple-300 font-mono">v{kvkkSozlesmesi?.versiyon || '1.0.0'}</span>
             </div>
-            <pre className="whitespace-pre-wrap font-sans text-[11px] text-gray-300 max-h-32 overflow-y-auto leading-relaxed bg-black/30 p-2.5 rounded-xl border border-purple-950">
+            <pre className="whitespace-pre-wrap font-sans text-[11px] text-purple-100/85 max-h-32 overflow-y-auto leading-relaxed bg-black/30 p-2.5 rounded-xl border border-purple-950">
               {kvkkSozlesmesi?.icerik}
             </pre>
             <label className="flex items-center gap-2 cursor-pointer pt-1 text-white font-semibold">
@@ -127,35 +127,35 @@ export const KuryeSozlesmeOnayModali: React.FC<KuryeSozlesmeOnayModaliProps> = (
                 type="checkbox"
                 checked={kvkkOnayli}
                 onChange={(e) => setKvkkOnayli(e.target.checked)}
-                className="accent-emerald-500 w-4 h-4"
+                className="accent-emerald-500 w-4 h-4 rounded"
               />
               <span>KVKK Aydınlatma Metnini okudum, kişisel verilerimin işlenmesini onaylıyorum.</span>
             </label>
           </div>
 
           {hataMesaji && (
-            <div className="p-3 rounded-xl bg-rose-950/80 border border-rose-700 text-rose-200 font-bold">
+            <div className="p-3 rounded-xl bg-rose-950/80 border border-rose-500/40 text-rose-200 font-semibold">
               {hataMesaji}
             </div>
           )}
 
           {sonuclar && (
-            <div className="p-3.5 rounded-2xl bg-emerald-950/60 border border-emerald-500/50 space-y-2 text-[11px]">
-              <div className="flex items-center gap-2 font-black text-emerald-300">
+            <div className="p-3.5 rounded-2xl bg-emerald-950/60 border border-emerald-500/40 space-y-2 text-[11px]">
+              <div className="flex items-center gap-2 font-bold text-emerald-300">
                 <CheckCircle2 className="w-4 h-4" />
                 <span>Hukuki Onaylar Zaman Damgası ile Mühürlendi</span>
               </div>
               {sonuclar.map((s) => (
-                <div key={s.log.kimlik} className="p-2 rounded-xl bg-black/30 border border-emerald-900/50 space-y-0.5">
+                <div key={s.log.kimlik} className="p-2 rounded-xl bg-black/35 border border-emerald-900/50 space-y-0.5">
                   <div className="flex justify-between text-white font-bold">
                     <span>{s.log.sozlesmeTuru}</span>
                     <span className="text-amber-300">{s.log.damgaDurumu}</span>
                   </div>
-                  <div className="text-gray-400 font-mono truncate">
+                  <div className="text-purple-200/75 font-mono truncate">
                     TSA: {s.log.tsaSaglayici || 'yerel'} • IP: {s.log.ipAdresi}
                   </div>
                   {s.log.ozetHash && (
-                    <div className="text-gray-400 font-mono truncate">
+                    <div className="text-purple-200/75 font-mono truncate">
                       SHA-256: {s.log.ozetHash}
                     </div>
                   )}
@@ -168,14 +168,14 @@ export const KuryeSozlesmeOnayModali: React.FC<KuryeSozlesmeOnayModaliProps> = (
             <button
               type="button"
               onClick={onKapat}
-              className="py-2.5 px-4 rounded-xl bg-white/10 hover:bg-white/20 text-gray-200 font-bold cursor-pointer"
+              className="py-2.5 px-4 rounded-xl bg-white/10 hover:bg-white/20 text-purple-100 font-semibold cursor-pointer transition-colors"
             >
               Kapat
             </button>
             <button
               type="submit"
               disabled={damgalaniyor}
-              className="py-2.5 px-5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 text-black font-black cursor-pointer disabled:opacity-50"
+              className="py-2.5 px-5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 text-[#180A1F] font-black cursor-pointer disabled:opacity-50 transition-all shadow-sm"
             >
               {damgalaniyor ? 'Zaman Damgası Alınıyor...' : 'Onayla ve Zaman Damgasıyla Mühürle'}
             </button>
