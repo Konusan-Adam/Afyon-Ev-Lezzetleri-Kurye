@@ -2,13 +2,19 @@ import { canliFirebaseAktifMi } from '@/src/veritabani/FirebaseIstemcisi';
 import { belgeKaydet, koleksiyonGetir } from '@/src/veritabani/FirebaseKoleksiyonServisi';
 import { patronBildirimiEkle } from '@/src/MalzemeCekmeceleri/PatronBildirimServisi';
 import { yerelSiparisDurumGuncelle, yerelSiparisleriGetir } from '@/src/MalzemeCekmeceleri/useMusteriSiparisleri';
+import { kuryeIptalBeyaniDamgala } from '@/src/MalzemeCekmeceleri/HukukVeSozlesmeler/hukukiDelilServisi';
 
 export async function siparisIptalEt(
   siparisKimligi: string,
   gerekceBaslik: string,
   detayNot?: string,
   iptalKaynagi: 'kurye' | 'admin' | 'mutfak' = 'admin',
-  urunler?: any[]
+  urunler?: any[],
+  kuryeBilgi?: {
+    kuryeId?: string;
+    kuryeAdi?: string;
+    kuryeTelefon?: string;
+  }
 ): Promise<boolean> {
   const aciklamaMetni = detayNot && detayNot.trim()
     ? `Sipariş İptal Edildi (${iptalKaynagi}): ${gerekceBaslik} (${detayNot.trim()})`
@@ -91,14 +97,30 @@ export async function siparisIptalEt(
     }
   }
 
-  // 3. Patron Bildirimi Ekle & Ses Çal
+  // 3. Kurye kaynaklı iptalde RFC 3161 + SHA-256 zaman damgalı hukuki delil kaydı
+  if (iptalKaynagi === 'kurye') {
+    const damgaKod = String(referansSiparis?.siparis_kodu || referansSiparis?.siparisKodu || referansSiparis?.id || siparisKimligi);
+    kuryeIptalBeyaniDamgala({
+      siparisKodu: damgaKod,
+      kuryeId: String(kuryeBilgi?.kuryeId || referansSiparis?.kurye_id || ''),
+      kuryeAdSoyad: String(kuryeBilgi?.kuryeAdi || referansSiparis?.kurye_adi || 'Kurye'),
+      kuryeTelefon: String(kuryeBilgi?.kuryeTelefon || referansSiparis?.kurye_telefon || ''),
+      gerekce: gerekceBaslik,
+      detayNot,
+      kaynak: 'siparisler'
+    }).catch((err) => {
+      console.warn('Kurye iptal hukuki damga uyarısı:', err);
+    });
+  }
+
+  // 4. Patron Bildirimi Ekle
   patronBildirimiEkle(
     'iade_talebi',
     'Sipariş İptal Edildi ⚠️',
     `#${(referansSiparis?.siparis_kodu || siparisKimligi).substring(0, 10)} nolu sipariş (${iptalKaynagi}) tarafından iptal edildi. Gerekçe: ${gerekceBaslik}`
   );
 
-  // 4. Global olay tetikle
+  // 5. Global olay tetikle
   if (typeof window !== 'undefined') {
     window.dispatchEvent(
       new CustomEvent('afyon_siparis_durum_degisti', {

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   androidApkGuncelleIndirVeKur,
   androidOrtamiMi,
-  androidUygulamaBilgisiGetir
+  androidUygulamaSurumuGetir
 } from './AndroidKopruServisi';
 
 export interface ApkMetaBilgisi {
@@ -46,7 +46,6 @@ export function useApkGuncelleme() {
     setHataMesaji('');
 
     try {
-      // 1. Yerel gömülü veya sunucudaki apk-meta.json bilgisini oku
       let yerelMeta: ApkMetaBilgisi | null = null;
       try {
         const yerelYanit = await fetch('./apk-meta.json', { cache: 'no-store' });
@@ -57,11 +56,11 @@ export function useApkGuncelleme() {
         // Yerel meta okunamazsa native sürüm koduna düş
       }
 
-      const nativeBilgi = androidUygulamaBilgisiGetir();
+      const nativeBilgi = androidUygulamaSurumuGetir();
       const yerelZaman = Number(yerelMeta?.builtTimestamp || 0);
       const yerelSurumKodu = Number(nativeBilgi?.surumKodu || yerelMeta?.versionCode || 0);
 
-      // 2. Uzak GitHub Releases (latest) kaynağını kontrol et
+      // 1. GitHub Releases (latest) kontrolü
       if (GITHUB_SURUM_DEPOSU) {
         const apiUrl = `https://api.github.com/repos/${GITHUB_SURUM_DEPOSU}/releases/latest`;
         const ghYanit = await fetch(apiUrl, {
@@ -89,7 +88,7 @@ export function useApkGuncelleme() {
                 uzakSurumAdi = uzakMeta.version || uzakSurumAdi;
               }
             } catch {
-              // Meta dosyası okunamazsa release tarihini kullan
+              // Yoksay
             }
           }
 
@@ -112,7 +111,7 @@ export function useApkGuncelleme() {
         }
       }
 
-      // 3. Uygulama içi canlı sunucu meta kontrolü (yalnızca Android APK içindeyken ve canlı adres tanımlıysa)
+      // 2. Canlı sunucu üzerinden apk-meta.json kontrolü
       if (androidOrtamiMi() && CANLI_UYGULAMA_ADRESI && guvenliHttpsAdresiMi(CANLI_UYGULAMA_ADRESI)) {
         const temizKok = CANLI_UYGULAMA_ADRESI.replace(/\/+$/, '');
         const uzakMetaYanit = await fetch(`${temizKok}/apk-meta.json`, { cache: 'no-store' });
@@ -130,7 +129,7 @@ export function useApkGuncelleme() {
               derlemeZamani: uzakZaman,
               yayinTarihiMetni: new Date(uzakZaman).toLocaleString('tr-TR'),
               indirmeAdresi: `${temizKok}/afyon-kurye.apk`,
-              aciklama: 'Performans ve canlı takip iyileştirmeleri içeren güncel APK hazır.'
+              aciklama: 'Arka plan uyandırma ve güncel özellikler içeren yeni APK hazır.'
             });
             setGuncellemeVar(true);
             return;
@@ -156,11 +155,7 @@ export function useApkGuncelleme() {
     setHataMesaji('');
 
     try {
-      const nativeBasladi = androidApkGuncelleIndirVeKur(
-        yeniSurumBilgisi.indirmeAdresi,
-        yeniSurumBilgisi.surumAdi
-      );
-
+      const nativeBasladi = androidApkGuncelleIndirVeKur(yeniSurumBilgisi.indirmeAdresi);
       if (!nativeBasladi && typeof document !== 'undefined') {
         const baglanti = document.createElement('a');
         baglanti.href = yeniSurumBilgisi.indirmeAdresi;

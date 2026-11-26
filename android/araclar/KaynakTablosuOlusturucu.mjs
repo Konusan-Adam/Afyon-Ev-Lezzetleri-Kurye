@@ -36,12 +36,12 @@ function metinHavuzuOlustur(metinler) {
   const toplamBoyut = metinBaslangici + veriBoyutu;
 
   const sonuc = Buffer.alloc(toplamBoyut);
-  sonuc.writeUInt16LE(0x0001, 0); // RES_STRING_POOL_TYPE
+  sonuc.writeUInt16LE(0x0001, 0);
   sonuc.writeUInt16LE(baslikBoyutu, 2);
   sonuc.writeUInt32LE(toplamBoyut, 4);
   sonuc.writeUInt32LE(metinler.length, 8);
   sonuc.writeUInt32LE(0, 12);
-  sonuc.writeUInt32LE(0, 16); // UTF-16LE
+  sonuc.writeUInt32LE(0, 16);
   sonuc.writeUInt32LE(metinBaslangici, 20);
   sonuc.writeUInt32LE(0, 24);
 
@@ -59,7 +59,7 @@ function metinHavuzuOlustur(metinler) {
 function tipSpecOlustur(tipId, kayitSayisi) {
   const boyut = 16 + kayitSayisi * 4;
   const tampon = Buffer.alloc(boyut);
-  tampon.writeUInt16LE(0x0202, 0); // RES_TABLE_TYPE_SPEC_TYPE
+  tampon.writeUInt16LE(0x0202, 0);
   tampon.writeUInt16LE(16, 2);
   tampon.writeUInt32LE(boyut, 4);
   tampon.writeUInt8(tipId, 8);
@@ -68,9 +68,8 @@ function tipSpecOlustur(tipId, kayitSayisi) {
 }
 
 function tipVeriBlokuOlustur(tipId, dpi, kayitlar) {
-  // ResTable_config: 64 byte yeterli ve tüm Android sürümlerinde geçerlidir
   const configBoyutu = 64;
-  const baslikBoyutu = 20 + configBoyutu; // 84
+  const baslikBoyutu = 20 + configBoyutu;
   const ofsetTabloBoyutu = kayitlar.length * 4;
   const kayitBaslangici = baslikBoyutu + ofsetTabloBoyutu;
 
@@ -81,12 +80,12 @@ function tipVeriBlokuOlustur(tipId, dpi, kayitlar) {
   for (const kayit of kayitlar) {
     ofsetler.push(gecerliOfset);
     const parca = Buffer.alloc(16);
-    parca.writeUInt16LE(8, 0); // ResTable_entry.size
-    parca.writeUInt16LE(0, 2); // flags
+    parca.writeUInt16LE(8, 0);
+    parca.writeUInt16LE(0, 2);
     parca.writeInt32LE(kayit.anahtarIndeksi, 4);
-    parca.writeUInt16LE(8, 8); // Res_value.size
-    parca.writeUInt8(0, 10); // res0
-    parca.writeUInt8(0x03, 11); // TYPE_STRING
+    parca.writeUInt16LE(8, 8);
+    parca.writeUInt8(0, 10);
+    parca.writeUInt8(0x03, 11);
     parca.writeInt32LE(kayit.metinIndeksi, 12);
     girisParcalari.push(parca);
     gecerliOfset += parca.length;
@@ -94,17 +93,15 @@ function tipVeriBlokuOlustur(tipId, dpi, kayitlar) {
 
   const toplamBoyut = kayitBaslangici + gecerliOfset;
   const tampon = Buffer.alloc(toplamBoyut);
-  tampon.writeUInt16LE(0x0201, 0); // RES_TABLE_TYPE_TYPE
+  tampon.writeUInt16LE(0x0201, 0);
   tampon.writeUInt16LE(baslikBoyutu, 2);
   tampon.writeUInt32LE(toplamBoyut, 4);
   tampon.writeUInt8(tipId, 8);
   tampon.writeUInt32LE(kayitlar.length, 12);
   tampon.writeUInt32LE(kayitBaslangici, 16);
 
-  // ResTable_config (ofset 20)
   tampon.writeUInt32LE(configBoyutu, 20);
   if (dpi > 0) {
-    // density alanı ResTable_config başından 28. bayttadır (20 + 28 = 48)
     tampon.writeUInt16LE(dpi, 48);
   }
 
@@ -140,7 +137,8 @@ function ikonSvgMetni(boyut, yuvarlakMi) {
 
 export async function ikonVeKaynakTablosuOlustur({
   paketKimligi = 'com.afyonevlezzetleri.kurye',
-  uygulamaAdi = 'Afyon Kurye'
+  uygulamaAdi = 'Afyon Kurye',
+  zilDosyalari = []
 }) {
   const ikonDosyalari = [];
   const genelMetinler = [];
@@ -177,14 +175,25 @@ export async function ikonVeKaynakTablosuOlustur({
   const dosyaYollariIndeksi = genelMetinler.length;
   genelMetinler.push('res/xml/dosya_yollari.xml');
 
-  const genelMetinHavuzu = metinHavuzuOlustur(genelMetinler);
-  const tipMetinHavuzu = metinHavuzuOlustur(['mipmap', 'string', 'xml']);
-  const anahtarMetinHavuzu = metinHavuzuOlustur([
+  const rawKayitlar = zilDosyalari.map((z) => {
+    const kaynakAdi = z.ad.replace(/\.[^.]+$/, '');
+    const apkYolu = `res/raw/${z.ad}`;
+    const metinIndeksi = genelMetinler.length;
+    genelMetinler.push(apkYolu);
+    return { kaynakAdi, apkYolu, metinIndeksi, veri: z.veri };
+  });
+
+  const anahtarListesi = [
     'ic_launcher',
     'ic_launcher_round',
     'app_name',
-    'dosya_yollari'
-  ]);
+    'dosya_yollari',
+    ...rawKayitlar.map((r) => r.kaynakAdi)
+  ];
+
+  const genelMetinHavuzu = metinHavuzuOlustur(genelMetinler);
+  const tipMetinHavuzu = metinHavuzuOlustur(['mipmap', 'string', 'xml', 'raw']);
+  const anahtarMetinHavuzu = metinHavuzuOlustur(anahtarListesi);
 
   const mipmapSpec = tipSpecOlustur(1, 2);
   const mipmapBloklari = YOGUNLUKLAR.map((y) => {
@@ -206,6 +215,21 @@ export async function ikonVeKaynakTablosuOlustur({
     { anahtarIndeksi: 3, metinIndeksi: dosyaYollariIndeksi }
   ]);
 
+  const rawParcalari = [];
+  if (rawKayitlar.length > 0) {
+    rawParcalari.push(tipSpecOlustur(4, rawKayitlar.length));
+    rawParcalari.push(
+      tipVeriBlokuOlustur(
+        4,
+        0,
+        rawKayitlar.map((r, idx) => ({
+          anahtarIndeksi: 4 + idx,
+          metinIndeksi: r.metinIndeksi
+        }))
+      )
+    );
+  }
+
   const paketGovdesi = Buffer.concat([
     tipMetinHavuzu,
     anahtarMetinHavuzu,
@@ -214,36 +238,38 @@ export async function ikonVeKaynakTablosuOlustur({
     stringSpec,
     stringBlok,
     xmlSpec,
-    xmlBlok
+    xmlBlok,
+    ...rawParcalari
   ]);
 
   const paketBaslikBoyutu = 288;
   const paketToplamBoyutu = paketBaslikBoyutu + paketGovdesi.length;
   const paketBasligi = Buffer.alloc(paketBaslikBoyutu);
-  paketBasligi.writeUInt16LE(0x0200, 0); // RES_TABLE_PACKAGE_TYPE
+  paketBasligi.writeUInt16LE(0x0200, 0);
   paketBasligi.writeUInt16LE(paketBaslikBoyutu, 2);
   paketBasligi.writeUInt32LE(paketToplamBoyutu, 4);
-  paketBasligi.writeUInt32LE(0x7f, 8); // id
+  paketBasligi.writeUInt32LE(0x7f, 8);
   Buffer.from(paketKimligi, 'utf16le').copy(paketBasligi, 12, 0, 256);
 
   const typeStringsOfset = paketBaslikBoyutu;
   const keyStringsOfset = paketBaslikBoyutu + tipMetinHavuzu.length;
   paketBasligi.writeUInt32LE(typeStringsOfset, 268);
-  paketBasligi.writeUInt32LE(3, 272); // lastPublicType
+  paketBasligi.writeUInt32LE(4, 272); // mipmap, string, xml, raw
   paketBasligi.writeUInt32LE(keyStringsOfset, 276);
-  paketBasligi.writeUInt32LE(4, 280); // lastPublicKey
-  paketBasligi.writeUInt32LE(0, 284); // typeIdOffset
+  paketBasligi.writeUInt32LE(anahtarListesi.length, 280);
+  paketBasligi.writeUInt32LE(0, 284);
 
   const paketBloku = Buffer.concat([paketBasligi, paketGovdesi]);
   const tabloGovdesi = Buffer.concat([genelMetinHavuzu, paketBloku]);
   const tabloBasligi = Buffer.alloc(12);
-  tabloBasligi.writeUInt16LE(0x0002, 0); // RES_TABLE_TYPE
+  tabloBasligi.writeUInt16LE(0x0002, 0);
   tabloBasligi.writeUInt16LE(12, 2);
   tabloBasligi.writeUInt32LE(12 + tabloGovdesi.length, 4);
-  tabloBasligi.writeUInt32LE(1, 8); // packageCount
+  tabloBasligi.writeUInt32LE(1, 8);
 
   return {
     kaynakTablosu: Buffer.concat([tabloBasligi, tabloGovdesi]),
-    ikonlar: ikonDosyalari.map((i) => ({ yol: i.yol, veri: i.veri }))
+    ikonlar: ikonDosyalari.map((i) => ({ yol: i.yol, veri: i.veri })),
+    rawDosyalar: rawKayitlar.map((r) => ({ yol: r.apkYolu, veri: r.veri }))
   };
 }

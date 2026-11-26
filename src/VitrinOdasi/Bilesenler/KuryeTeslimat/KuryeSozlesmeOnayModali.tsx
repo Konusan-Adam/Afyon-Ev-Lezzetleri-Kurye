@@ -24,17 +24,19 @@ export const KuryeSozlesmeOnayModali: React.FC<KuryeSozlesmeOnayModaliProps> = (
   const sozlesmeler = hukukiSozlesmeleriGetir();
   const kuryeSozlesmesi = sozlesmeler.kurye_kayit_sozlesmesi;
   const kvkkSozlesmesi = sozlesmeler.kvkk_aydinlatma;
+  const ehliyetBeyani = sozlesmeler.kurye_ehliyet_arac_beyani;
 
   const [tasimaOnayli, setTasimaOnayli] = useState(false);
   const [kvkkOnayli, setKvkkOnayli] = useState(false);
+  const [ehliyetOnayli, setEhliyetOnayli] = useState(false);
   const [damgalaniyor, setDamgalaniyor] = useState(false);
   const [hataMesaji, setHataMesaji] = useState('');
   const [sonuclar, setSonuclar] = useState<HukukiDelilSonucu[] | null>(null);
 
   const handleOnaylaVeDamgala = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!tasimaOnayli || !kvkkOnayli) {
-      setHataMesaji('Devam etmek için her iki sözleşme onay kutusunu işaretlemelisiniz.');
+    if (!tasimaOnayli || !kvkkOnayli || !ehliyetOnayli) {
+      setHataMesaji('Devam etmek için üç sözleşme onay kutusunun tamamını işaretlemelisiniz.');
       return;
     }
 
@@ -130,6 +132,29 @@ export const KuryeSozlesmeOnayModali: React.FC<KuryeSozlesmeOnayModaliProps> = (
                 className="accent-emerald-500 w-4 h-4 rounded"
               />
               <span>KVKK Aydınlatma Metnini okudum, kişisel verilerimin işlenmesini onaylıyorum.</span>
+            </label>
+          </div>
+
+          {/* Araç Muayene, Trafik Sigortası, Ehliyet ve İş Güvenliği Beyanı */}
+          <div className="p-3.5 rounded-2xl bg-[#110415] border border-purple-900/60 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-amber-300 flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5" />
+                {ehliyetBeyani?.baslik || 'Araç Muayene, Trafik Sigortası ve Ehliyet Beyanı'}
+              </span>
+              <span className="text-[10px] text-purple-300 font-mono">v{ehliyetBeyani?.versiyon || '1.0.0'}</span>
+            </div>
+            <pre className="whitespace-pre-wrap font-sans text-[11px] text-purple-100/85 max-h-32 overflow-y-auto leading-relaxed bg-black/30 p-2.5 rounded-xl border border-purple-950">
+              {ehliyetBeyani?.icerik}
+            </pre>
+            <label className="flex items-center gap-2 cursor-pointer pt-1 text-white font-semibold">
+              <input
+                type="checkbox"
+                checked={ehliyetOnayli}
+                onChange={(e) => setEhliyetOnayli(e.target.checked)}
+                className="accent-amber-500 w-4 h-4 rounded"
+              />
+              <span>Araç Muayene, Trafik Sigortası, Ehliyet ve İş Güvenliği Beyanını kabul ediyorum.</span>
             </label>
           </div>
 

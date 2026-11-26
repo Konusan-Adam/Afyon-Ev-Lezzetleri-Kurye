@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.afyonevlezzetleri.kurye"
-    android:versionCode="100"
+    android:versionCode="102"
     android:versionName="1.0.0">
 
     <uses-sdk
@@ -50,7 +50,7 @@
         </activity>
 
         <service
-            android:name=".KuryeDinleyiciServisi"
+            android:name=".DinleyiciServisi"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="location|dataSync" />

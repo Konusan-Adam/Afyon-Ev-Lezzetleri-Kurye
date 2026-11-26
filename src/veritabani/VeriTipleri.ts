@@ -152,7 +152,12 @@ export interface Kullanici {
   arac_tipi?: string;
   plaka?: string;
   ilce?: string;
+  ehliyet_durumu?: string;
+  belge_beyani?: string;
+  guvenlik_sorusu?: string;
   onayli_mi?: boolean;
+  onay_durumu?: 'beklemede' | 'onaylandi' | 'reddedildi' | 'askida' | string;
+  askida_mi?: boolean;
   olusturma_tarihi?: string;
 }
 

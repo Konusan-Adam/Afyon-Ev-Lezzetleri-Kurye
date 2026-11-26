@@ -101,10 +101,14 @@ export const useKuryeCanliPaketler = (
   };
 
   const paketiIptalEt = async (siparisId: string, gerekce: string, detayNot?: string) => {
-    const basarili = await siparisIptalEt(siparisId, gerekce, detayNot, 'kurye');
+    const basarili = await siparisIptalEt(siparisId, gerekce, detayNot, 'kurye', undefined, {
+      kuryeId,
+      kuryeAdi,
+      kuryeTelefon
+    });
     await yenile();
     return basarili
-      ? { basarili: true, mesaj: 'Sipariş kurye tarafından iptal edildi.' }
+      ? { basarili: true, mesaj: 'Sipariş kurye tarafından iptal edildi ve zaman damgasıyla kaydedildi.' }
       : { basarili: false, mesaj: 'Sipariş iptal edilemedi.' };
   };
 

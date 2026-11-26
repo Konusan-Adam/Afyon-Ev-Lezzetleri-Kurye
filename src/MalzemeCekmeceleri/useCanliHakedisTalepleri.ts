@@ -84,6 +84,7 @@ export function useCanliHakedisTalepleri() {
         onaylandiMi: true,
         ilgiliKayitId: yeni.id,
         kullaniciKimlik: yeni.kurye_id || yeni.mutfak_id || '',
+        kullaniciTelefon: String(yeni.kurye_telefon || ''),
         kullaniciAdSoyad: yeni.kurye_adi || yeni.mutfak_adi || '',
         ekDetay: {
           tutar: Number(yeni.tutar ?? 0),

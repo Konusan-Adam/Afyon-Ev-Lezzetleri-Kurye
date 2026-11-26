@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { canliFirebaseAktifMi } from '@/src/veritabani/FirebaseIstemcisi';
 import { koleksiyonuCanliDinle } from '@/src/veritabani/FirebaseKoleksiyonServisi';
-import { kuryeZiliCal } from './KuryeZilServisi';
+import { kuryeZiliCal, kuryeZiliSustur } from './KuryeZilServisi';
 import { kuryeTeslimZiliCal } from '@/src/MalzemeCekmeceleri/KuryeTeslimZili';
 import { sekmeAlarmiDurdur } from '@/src/MalzemeCekmeceleri/SekmeAlarmi';
 
@@ -54,7 +54,7 @@ export function useKuryeBildirimleri(kuryeId: string) {
       clearInterval(tekrarZiliRef.current);
       tekrarZiliRef.current = null;
     }
-    sekmeAlarmiDurdur();
+    kuryeZiliSustur();
     setYeniPaketUyarisi(null);
   };
 
@@ -124,6 +124,7 @@ export function useKuryeBildirimleri(kuryeId: string) {
       window.removeEventListener('afyon_siparis_durum_degisti', durumDinle);
       if (tekrarZiliRef.current) clearInterval(tekrarZiliRef.current);
       sekmeAlarmiDurdur();
+      kuryeZiliSustur();
       abonelikDurdur();
     };
   }, [kuryeId]);

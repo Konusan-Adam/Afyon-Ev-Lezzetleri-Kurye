@@ -73,6 +73,8 @@ export * from "./HukukVeSozlesmeler/tipler";
 export * from "./KuryeTeslimat/KuryePinServisi";
 export * from "./KuryeTeslimat/KuryeZilServisi";
 export * from "./KuryeTeslimat/SubeSiparisServisi";
+export * from "./KuryeTeslimat/ZilSesiYonetimi";
+export * from "./KuryeTeslimat/kuryeKimlikServisi";
 export * from "./KuryeTeslimat/kuryeKonumGonderici";
 export * from "./KuryeTeslimat/useKuryeBildirimleri";
 export * from "./KuryeTeslimat/useKuryeCanliPaketler";

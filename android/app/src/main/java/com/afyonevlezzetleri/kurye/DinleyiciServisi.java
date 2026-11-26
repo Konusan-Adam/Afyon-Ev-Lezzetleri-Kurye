@@ -9,11 +9,13 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.media.AudioAttributes;
-import android.media.Ringtone;
+import android.media.MediaPlayer;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.os.PowerManager;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
@@ -22,6 +24,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
@@ -33,12 +36,20 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-public class KuryeDinleyiciServisi extends Service {
+public class DinleyiciServisi extends Service {
 
-    public static final String EYLEM_ALARM_CAL = "com.afyonevlezzetleri.kurye.EYLEM_ALARM_CAL";
+    public static volatile boolean uygulamaOnPlanda = false;
+
+    public static final String EYLEM_ZIL_CAL = "com.afyonevlezzetleri.kurye.EYLEM_ZIL_CAL";
+    public static final String EYLEM_ZIL_SUSTUR = "com.afyonevlezzetleri.kurye.EYLEM_ZIL_SUSTUR";
     public static final String EYLEM_OTURUM_GUNCELLENDI = "com.afyonevlezzetleri.kurye.EYLEM_OTURUM_GUNCELLENDI";
     public static final String EKSTRA_BASLIK = "baslik";
     public static final String EKSTRA_MESAJ = "mesaj";
+    public static final String EKSTRA_KESINTISIZ = "kesintisiz";
+    public static final String EKSTRA_SURE_SN = "sure_sn";
+
+    private static final String ORTAK_PROJE_ID = "tfy-smart-fishing-511521";
+    private static final String ORTAK_VERITABANI_ID = "ai-studio-afyonevlezzetler-373e291d-b34e-4126-ac5e-613533550d71";
 
     private static final String GOREV_KANAL_ID = "afyon_kurye_gorev_kanali";
     private static final String ALARM_KANAL_ID = "afyon_kurye_siparis_alarmi";
@@ -47,16 +58,17 @@ public class KuryeDinleyiciServisi extends Service {
 
     private PowerManager.WakeLock kismiKilit;
     private ScheduledExecutorService zamanlayici;
-    private final Set<String> bilinenSiparisIdleri = new HashSet<>();
-    private String firebaseProjeId = "";
+    private final Set<String> bilinenSiparisler = new HashSet<>();
+    private final Set<String> bilinenIptaller = new HashSet<>();
+    private final Handler anaIsParcacigi = new Handler(Looper.getMainLooper());
+    private MediaPlayer aktifCalar;
     private String firebaseApiAnahtari = "";
-    private String firestoreDbId = "(default)";
 
     @Override
     public void onCreate() {
         super.onCreate();
         bildirimKanallariniOlustur();
-        firebaseYapilandirmasiniOku();
+        apiAnahtariniOku();
 
         PowerManager gucYonetimi = (PowerManager) getSystemService(Context.POWER_SERVICE);
         if (gucYonetimi != null) {
@@ -70,14 +82,24 @@ public class KuryeDinleyiciServisi extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int bayraklar, int baslangicId) {
-        if (intent != null && EYLEM_ALARM_CAL.equals(intent.getAction())) {
+        if (intent == null) return START_STICKY;
+
+        String eylem = intent.getAction();
+        if (EYLEM_ZIL_CAL.equals(eylem)) {
             String baslik = intent.getStringExtra(EKSTRA_BASLIK);
             String mesaj = intent.getStringExtra(EKSTRA_MESAJ);
-            yuksekOncelikliAlarmTetikle(
-                baslik != null ? baslik : "Yeni Paket Hazır!",
-                mesaj != null ? mesaj : "Sevk masasında yeni teslimat bekliyor."
+            boolean kesintisiz = intent.getBooleanExtra(EKSTRA_KESINTISIZ, true);
+            int sureSn = intent.getIntExtra(EKSTRA_SURE_SN, 15);
+            alarmTetikle(
+                baslik != null ? baslik : "Yeni Kurye Görevi!",
+                mesaj != null ? mesaj : "Teslime hazır yeni sipariş bekliyor.",
+                kesintisiz,
+                sureSn,
+                true
             );
-        } else if (intent != null && EYLEM_OTURUM_GUNCELLENDI.equals(intent.getAction())) {
+        } else if (EYLEM_ZIL_SUSTUR.equals(eylem)) {
+            alarmiSustur();
+        } else if (EYLEM_OTURUM_GUNCELLENDI.equals(eylem)) {
             SharedPreferences tercihler = getSharedPreferences(MainActivity.TERCIH_ADI, MODE_PRIVATE);
             String kuryeAdi = tercihler.getString(MainActivity.ANAHTAR_KURYE_ADI, "Kurye");
             NotificationManager bildirimYoneticisi = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
@@ -93,6 +115,7 @@ public class KuryeDinleyiciServisi extends Service {
 
     @Override
     public void onDestroy() {
+        alarmiSustur();
         if (zamanlayici != null) {
             zamanlayici.shutdownNow();
         }
@@ -120,25 +143,16 @@ public class KuryeDinleyiciServisi extends Service {
         gorevKanali.setDescription("Kurye arka plan dinleme servisi durumu");
         yonetici.createNotificationChannel(gorevKanali);
 
-        Uri zilSesi = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
-        if (zilSesi == null) {
-            zilSesi = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
-        }
-
         NotificationChannel alarmKanali = new NotificationChannel(
             ALARM_KANAL_ID,
-            "Acil Sipariş Alarmı",
+            "Acil Kurye Alarmı",
             NotificationManager.IMPORTANCE_HIGH
         );
-        alarmKanali.setDescription("Yeni paket veya şube siparişi hazır olduğunda sesli uyandırma");
+        alarmKanali.setDescription("Yeni paket, şube teslimatı veya iptal uyarısı");
         alarmKanali.enableVibration(true);
         alarmKanali.setVibrationPattern(new long[]{0, 450, 200, 450, 200, 600});
         alarmKanali.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
-        AudioAttributes sesOzellikleri = new AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_ALARM)
-            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-            .build();
-        alarmKanali.setSound(zilSesi, sesOzellikleri);
+        alarmKanali.setSound(null, null);
         yonetici.createNotificationChannel(alarmKanali);
     }
 
@@ -164,7 +178,31 @@ public class KuryeDinleyiciServisi extends Service {
             .build();
     }
 
-    private void yuksekOncelikliAlarmTetikle(String baslik, String mesaj) {
+    private synchronized void alarmiSustur() {
+        anaIsParcacigi.removeCallbacksAndMessages(null);
+        if (aktifCalar != null) {
+            try {
+                if (aktifCalar.isPlaying()) {
+                    aktifCalar.stop();
+                }
+                aktifCalar.release();
+            } catch (Exception ignored) {
+            }
+            aktifCalar = null;
+        }
+        NotificationManager yonetici = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (yonetici != null) {
+            yonetici.cancel(ALARM_BILDIRIM_ID);
+        }
+    }
+
+    private void alarmTetikle(String baslik, String mesaj, boolean kesintisiz, int sureSn, boolean zorlaCal) {
+        // Ekran açık ve uygulama ön plandaysa (zorunlu test değilse) çift ses olmaması için sesi WebView çalar
+        if (uygulamaOnPlanda && !zorlaCal) {
+            bildirimGoster(baslik, mesaj);
+            return;
+        }
+
         PowerManager gucYonetimi = (PowerManager) getSystemService(Context.POWER_SERVICE);
         if (gucYonetimi != null) {
             @SuppressWarnings("deprecation")
@@ -172,12 +210,12 @@ public class KuryeDinleyiciServisi extends Service {
                 PowerManager.SCREEN_BRIGHT_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP,
                 "AfyonKurye::AlarmUyandirma"
             );
-            ekranKilidi.acquire(10000L);
+            ekranKilidi.acquire(12000L);
         }
 
         Vibrator titresim = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
         if (titresim != null && titresim.hasVibrator()) {
-            long[] desen = new long[]{0, 400, 150, 400, 150, 550};
+            long[] desen = new long[]{0, 450, 150, 450, 150, 600};
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 titresim.vibrate(VibrationEffect.createWaveform(desen, -1));
             } else {
@@ -185,18 +223,65 @@ public class KuryeDinleyiciServisi extends Service {
             }
         }
 
+        medyaCalarBaslat(kesintisiz, sureSn);
+        bildirimGoster(baslik, mesaj);
+    }
+
+    private synchronized void medyaCalarBaslat(boolean kesintisiz, int sureSn) {
+        alarmiSustur();
+
+        SharedPreferences tercihler = getSharedPreferences(MainActivity.TERCIH_ADI, MODE_PRIVATE);
+        String seciliKimlik = tercihler.getString(MainActivity.ANAHTAR_ZIL_KIMLIK, "korna_klasik");
+        float sesSeviyesi = tercihler.getFloat(MainActivity.ANAHTAR_ZIL_SES_SEVIYESI, 0.9f);
+
         try {
-            Uri alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
-            if (alarmUri == null) {
-                alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+            MediaPlayer calar = new MediaPlayer();
+            calar.setAudioAttributes(
+                new AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+            );
+
+            File ozelDosya = new File(getFilesDir(), MainActivity.OZEL_ZIL_DOSYASI);
+            boolean kaynakHazir = false;
+
+            if ("ozel".equals(seciliKimlik) && ozelDosya.exists() && ozelDosya.length() > 0) {
+                calar.setDataSource(ozelDosya.getAbsolutePath());
+                kaynakHazir = true;
+            } else {
+                int rawId = getResources().getIdentifier("zil_" + seciliKimlik, "raw", getPackageName());
+                if (rawId == 0) {
+                    rawId = getResources().getIdentifier("zil_korna_klasik", "raw", getPackageName());
+                }
+                if (rawId != 0) {
+                    Uri rawUri = Uri.parse("android.resource://" + getPackageName() + "/" + rawId);
+                    calar.setDataSource(getApplicationContext(), rawUri);
+                    kaynakHazir = true;
+                }
             }
-            Ringtone zil = RingtoneManager.getRingtone(getApplicationContext(), alarmUri);
-            if (zil != null) {
-                zil.play();
+
+            if (!kaynakHazir) {
+                Uri varsayilanAlarm = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+                if (varsayilanAlarm == null) {
+                    varsayilanAlarm = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+                }
+                calar.setDataSource(getApplicationContext(), varsayilanAlarm);
             }
+
+            calar.setLooping(kesintisiz);
+            calar.setVolume(sesSeviyesi, sesSeviyesi);
+            calar.prepare();
+            calar.start();
+            aktifCalar = calar;
+
+            long durdurmaMs = Math.max(3000L, Math.min(sureSn * 1000L, 60000L));
+            anaIsParcacigi.postDelayed(this::alarmiSustur, durdurmaMs);
         } catch (Exception ignored) {
         }
+    }
 
+    private void bildirimGoster(String baslik, String mesaj) {
         Intent tamEkranIntent = new Intent(this, MainActivity.class);
         tamEkranIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         PendingIntent tamEkranBekleyen = PendingIntent.getActivity(
@@ -225,7 +310,7 @@ public class KuryeDinleyiciServisi extends Service {
         }
     }
 
-    private void firebaseYapilandirmasiniOku() {
+    private void apiAnahtariniOku() {
         try (InputStream girdi = getAssets().open("www/apk-meta.json");
              BufferedReader okuyucu = new BufferedReader(new InputStreamReader(girdi, StandardCharsets.UTF_8))) {
             StringBuilder sb = new StringBuilder();
@@ -234,10 +319,10 @@ public class KuryeDinleyiciServisi extends Service {
                 sb.append(satir);
             }
             JSONObject meta = new JSONObject(sb.toString());
-            firebaseProjeId = meta.optString("firebaseProjectId", "");
-            firebaseApiAnahtari = meta.optString("firebaseApiKey", "");
-            String dbId = meta.optString("firestoreDatabaseId", "(default)");
-            firestoreDbId = (dbId == null || dbId.isEmpty()) ? "(default)" : dbId;
+            String anahtar = meta.optString("firebaseApiKey", "");
+            if (!anahtar.contains("Dummy")) {
+                firebaseApiAnahtari = anahtar;
+            }
         } catch (Exception ignored) {
         }
     }
@@ -245,27 +330,35 @@ public class KuryeDinleyiciServisi extends Service {
     private void canliDinlemeyiBaslat() {
         zamanlayici = Executors.newSingleThreadScheduledExecutor();
         zamanlayici.scheduleWithFixedDelay(() -> {
-            if (firebaseProjeId.isEmpty() || firebaseApiAnahtari.isEmpty() || firebaseApiAnahtari.contains("Dummy")) {
-                return;
-            }
-            koleksiyonKontrolEt("siparisler", "paketlendi", "Yeni Mutfak Paketi Hazır!");
-            koleksiyonKontrolEt("sube_siparisleri", "teslime_hazir", "Yeni Şube Siparişi Hazır!");
-        }, 12, 18, TimeUnit.SECONDS);
+            SharedPreferences tercihler = getSharedPreferences(MainActivity.TERCIH_ADI, MODE_PRIVATE);
+            String aktifKuryeId = tercihler.getString(MainActivity.ANAHTAR_KURYE_ID, "");
+            koleksiyonKontrolEt("siparisler", "paketlendi", aktifKuryeId, false);
+            koleksiyonKontrolEt("sube_siparisleri", "teslime_hazir", aktifKuryeId, true);
+        }, 8, 12, TimeUnit.SECONDS);
     }
 
-    private void koleksiyonKontrolEt(String koleksiyonAdi, String hedefDurum, String alarmBasligi) {
+    private void koleksiyonKontrolEt(
+        String koleksiyonAdi,
+        String hazirDurum,
+        String aktifKuryeId,
+        boolean subeSiparisiMi
+    ) {
         HttpURLConnection baglanti = null;
         try {
-            String adres = "https://firestore.googleapis.com/v1/projects/"
-                + firebaseProjeId
-                + "/databases/"
-                + firestoreDbId
-                + "/documents/"
-                + koleksiyonAdi
-                + "?pageSize=25&key="
-                + firebaseApiAnahtari;
+            StringBuilder urlBuilder = new StringBuilder();
+            urlBuilder.append("https://firestore.googleapis.com/v1/projects/")
+                .append(ORTAK_PROJE_ID)
+                .append("/databases/")
+                .append(ORTAK_VERITABANI_ID)
+                .append("/documents/")
+                .append(koleksiyonAdi)
+                .append("?pageSize=30");
 
-            baglanti = (HttpURLConnection) new URL(adres).openConnection();
+            if (!firebaseApiAnahtari.isEmpty()) {
+                urlBuilder.append("&key=").append(firebaseApiAnahtari);
+            }
+
+            baglanti = (HttpURLConnection) new URL(urlBuilder.toString()).openConnection();
             baglanti.setConnectTimeout(8000);
             baglanti.setReadTimeout(8000);
             if (baglanti.getResponseCode() != HttpURLConnection.HTTP_OK) return;
@@ -284,20 +377,36 @@ public class KuryeDinleyiciServisi extends Service {
 
             for (int i = 0; i < belgeler.length(); i++) {
                 JSONObject belge = belgeler.getJSONObject(i);
-                String adYolu = belge.optString("name", "");
+                String belgeYolu = belge.optString("name", "");
                 JSONObject alanlar = belge.optJSONObject("fields");
                 if (alanlar == null) continue;
 
-                JSONObject durumObj = alanlar.optJSONObject("durum");
-                String durum = durumObj != null ? durumObj.optString("stringValue", "") : "";
-                JSONObject kuryeObj = alanlar.optJSONObject("kurye_id");
-                String atananKurye = kuryeObj != null ? kuryeObj.optString("stringValue", "") : "";
+                String durum = metinAlaniOku(alanlar, "durum");
+                String atananKurye = metinAlaniOku(alanlar, "kurye_id");
+                String kod = metinAlaniOku(alanlar, "siparis_kodu");
+                if (kod.isEmpty()) kod = "Yeni";
 
-                if (hedefDurum.equals(durum) && atananKurye.isEmpty() && !bilinenSiparisIdleri.contains(adYolu)) {
-                    bilinenSiparisIdleri.add(adYolu);
-                    JSONObject kodObj = alanlar.optJSONObject("siparis_kodu");
-                    String kod = kodObj != null ? kodObj.optString("stringValue", "Yeni") : "Yeni";
-                    yuksekOncelikliAlarmTetikle(alarmBasligi, "#" + kod + " numaralı paket teslim alınmayı bekliyor.");
+                if (subeSiparisiMi) {
+                    String teslimatTipi = metinAlaniOku(alanlar, "teslimat_tipi");
+                    if (!teslimatTipi.isEmpty() && !"teslimat".equals(teslimatTipi)) {
+                        continue;
+                    }
+                }
+
+                boolean kuryeyeAtandi = !aktifKuryeId.isEmpty() && aktifKuryeId.equals(atananKurye);
+                boolean havuzdaHazir = hazirDurum.equals(durum) && (atananKurye.isEmpty() || kuryeyeAtandi);
+
+                if (havuzdaHazir && !bilinenSiparisler.contains(belgeYolu)) {
+                    bilinenSiparisler.add(belgeYolu);
+                    String baslik = subeSiparisiMi ? "Yeni Şube Teslimatı Hazır!" : "Yeni Mutfak Paketi Hazır!";
+                    String adres = metinAlaniOku(alanlar, "teslimat_adresi_metni");
+                    String detay = "#" + kod + (adres.isEmpty() ? " teslim alınmayı bekliyor." : " • " + adres);
+                    alarmTetikle(baslik, detay, true, 20, false);
+                }
+
+                if ("iptal".equals(durum) && kuryeyeAtandi && !bilinenIptaller.contains(belgeYolu)) {
+                    bilinenIptaller.add(belgeYolu);
+                    alarmTetikle("Sipariş İptal Edildi", "#" + kod + " numaralı teslimat iptal edildi.", false, 6, false);
                 }
             }
         } catch (Exception ignored) {
@@ -306,5 +415,10 @@ public class KuryeDinleyiciServisi extends Service {
                 baglanti.disconnect();
             }
         }
+    }
+
+    private String metinAlaniOku(JSONObject alanlar, String anahtar) {
+        JSONObject obje = alanlar.optJSONObject(anahtar);
+        return obje != null ? obje.optString("stringValue", "") : "";
     }
 }

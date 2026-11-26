@@ -1,12 +1,13 @@
 export interface AfyonKuryeAndroidKopru {
-  oturumBilgisiKaydet?: (kuryeId: string, kuryeAdi: string) => void;
-  oturumTemizle?: () => void;
-  titre?: (sureMs: number) => void;
-  sesliAlarmCal?: (baslik: string, mesaj: string) => void;
+  oturumAyarla?: (kuryeId: string, kuryeAdi: string, rol: string) => void;
+  oturumKapat?: () => void;
+  zilAyarla?: (seciliKimlik: string, sesSeviyesi: number, ozelSesVeriUrl: string) => void;
+  zilCal?: (baslik: string, detay: string, kesintisiz: boolean, sureSn: number) => void;
+  zilSustur?: () => void;
   pilMuafiyetiVarMi?: () => boolean;
-  pilMuafiyetiIste?: () => void;
-  uygulamaBilgisiGetir?: () => string;
-  apkGuncelleIndirVeKur?: (indirmeAdresi: string, surumAdi: string) => void;
+  pilOptimizasyonuIste?: () => void;
+  uygulamaSurumu?: () => string;
+  apkGuncelleIndirVeKur?: (indirmeUrl: string) => void;
 }
 
 export interface AndroidUygulamaBilgisi {
@@ -30,42 +31,53 @@ export function androidOrtamiMi(): boolean {
   return kopruGetir() !== null;
 }
 
-export function androidOturumKaydet(kuryeId: string, kuryeAdi: string): void {
+export function androidOturumAyarla(kuryeId: string, kuryeAdi: string, rol: string = 'kurye'): void {
   try {
-    kopruGetir()?.oturumBilgisiKaydet?.(kuryeId, kuryeAdi);
+    kopruGetir()?.oturumAyarla?.(kuryeId, kuryeAdi, rol);
   } catch {
     // Tarayıcı ortamında sessiz geçiş
   }
 }
 
-export function androidOturumTemizle(): void {
+export function androidOturumKapat(): void {
   try {
-    kopruGetir()?.oturumTemizle?.();
+    kopruGetir()?.oturumKapat?.();
   } catch {
     // Tarayıcı ortamında sessiz geçiş
   }
 }
 
-export function androidTitre(sureMs: number = 450): void {
+export function androidZilAyarla(
+  seciliKimlik: string,
+  sesSeviyesi: number,
+  ozelSesVeriUrl: string = ''
+): void {
   try {
-    const kopru = kopruGetir();
-    if (kopru?.titre) {
-      kopru.titre(sureMs);
-      return;
-    }
-    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-      navigator.vibrate(sureMs);
-    }
+    const guvenliSeviye = Math.max(0.2, Math.min(1.0, Number(sesSeviyesi) || 0.9));
+    kopruGetir()?.zilAyarla?.(seciliKimlik, guvenliSeviye, ozelSesVeriUrl);
   } catch {
-    // Sessiz geçiş
+    // Tarayıcı ortamında sessiz geçiş
   }
 }
 
-export function androidSesliAlarmCal(baslik: string, mesaj: string): void {
+export function androidZilCal(
+  baslik: string,
+  detay: string,
+  kesintisiz: boolean = true,
+  sureSn: number = 20
+): void {
   try {
-    kopruGetir()?.sesliAlarmCal?.(baslik, mesaj);
+    kopruGetir()?.zilCal?.(baslik, detay, kesintisiz, sureSn);
   } catch {
-    // Sessiz geçiş
+    // Tarayıcı ortamında sessiz geçiş
+  }
+}
+
+export function androidZilSustur(): void {
+  try {
+    kopruGetir()?.zilSustur?.();
+  } catch {
+    // Tarayıcı ortamında sessiz geçiş
   }
 }
 
@@ -79,36 +91,36 @@ export function androidPilMuafiyetiVarMi(): boolean {
   }
 }
 
-export function androidPilMuafiyetiIste(): void {
+export function androidPilOptimizasyonuIste(): void {
   try {
-    kopruGetir()?.pilMuafiyetiIste?.();
+    kopruGetir()?.pilOptimizasyonuIste?.();
   } catch {
-    // Sessiz geçiş
+    // Tarayıcı ortamında sessiz geçiş
   }
 }
 
-export function androidUygulamaBilgisiGetir(): AndroidUygulamaBilgisi | null {
+export function androidUygulamaSurumuGetir(): AndroidUygulamaBilgisi | null {
   try {
     const kopru = kopruGetir();
-    if (!kopru?.uygulamaBilgisiGetir) return null;
-    const ham = kopru.uygulamaBilgisiGetir();
+    if (!kopru?.uygulamaSurumu) return null;
+    const ham = kopru.uygulamaSurumu();
     if (!ham) return null;
     const cozumlenmis = JSON.parse(ham);
     return {
       paketAdi: String(cozumlenmis.paketAdi || 'com.afyonevlezzetleri.kurye'),
       surumAdi: String(cozumlenmis.surumAdi || '1.0.0'),
-      surumKodu: Number(cozumlenmis.surumKodu || 100)
+      surumKodu: Number(cozumlenmis.surumKodu || 102)
     };
   } catch {
     return null;
   }
 }
 
-export function androidApkGuncelleIndirVeKur(indirmeAdresi: string, surumAdi: string): boolean {
+export function androidApkGuncelleIndirVeKur(indirmeUrl: string): boolean {
   try {
     const kopru = kopruGetir();
     if (!kopru?.apkGuncelleIndirVeKur) return false;
-    kopru.apkGuncelleIndirVeKur(indirmeAdresi, surumAdi);
+    kopru.apkGuncelleIndirVeKur(indirmeUrl);
     return true;
   } catch {
     return false;

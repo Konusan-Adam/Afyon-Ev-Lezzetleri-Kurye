@@ -12,6 +12,23 @@ function uleb128Yaz(deger) {
   return Buffer.from(baytlar);
 }
 
+function sleb128Yaz(deger) {
+  const baytlar = [];
+  let v = deger | 0;
+  let devam = true;
+  while (devam) {
+    let b = v & 0x7f;
+    v >>= 7;
+    if ((v === 0 && (b & 0x40) === 0) || (v === -1 && (b & 0x40) !== 0)) {
+      devam = false;
+    } else {
+      b |= 0x80;
+    }
+    baytlar.push(b);
+  }
+  return Buffer.from(baytlar);
+}
+
 function dortBaytaHizala(n) {
   return (n + 3) & ~3;
 }
@@ -28,15 +45,7 @@ function adler32Hesapla(veri) {
 }
 
 function kisaTipHarfi(tip) {
-  if (tip === 'V') return 'V';
-  if (tip === 'Z') return 'Z';
-  if (tip === 'B') return 'B';
-  if (tip === 'S') return 'S';
-  if (tip === 'C') return 'C';
-  if (tip === 'I') return 'I';
-  if (tip === 'J') return 'J';
-  if (tip === 'F') return 'F';
-  if (tip === 'D') return 'D';
+  if (['V', 'Z', 'B', 'S', 'C', 'I', 'J', 'F', 'D'].includes(tip)) return tip;
   return 'L';
 }
 
@@ -44,15 +53,76 @@ function tipGenisligi(tip) {
   return tip === 'J' || tip === 'D' ? 2 : 1;
 }
 
-// Dalvik bytecode talimat yardımcıları (küçük endian 16-bit kod birimleri)
+// Sembolik etiket ve try/catch destekli Dalvik kod birleştirici
+class KodBirlestirici {
+  constructor() {
+    this.ogeler = [];
+    this.etiketKonumlari = new Map();
+  }
+  ekle(birimler) {
+    this.ogeler.push({ tip: 'insns', birimler });
+    return this;
+  }
+  etiket(ad) {
+    this.ogeler.push({ tip: 'label', ad });
+    return this;
+  }
+  ifEqz(v, hedefEtiket) {
+    this.ogeler.push({ tip: 'branch21t', opcode: 0x38, v, hedefEtiket });
+    return this;
+  }
+  ifNez(v, hedefEtiket) {
+    this.ogeler.push({ tip: 'branch21t', opcode: 0x39, v, hedefEtiket });
+    return this;
+  }
+  git(hedefEtiket) {
+    this.ogeler.push({ tip: 'goto16', opcode: 0x29, hedefEtiket });
+    return this;
+  }
+  derle() {
+    let imlec = 0;
+    for (const o of this.ogeler) {
+      if (o.tip === 'label') {
+        this.etiketKonumlari.set(o.ad, imlec);
+      } else if (o.tip === 'insns') {
+        imlec += o.birimler.length;
+      } else if (o.tip === 'branch21t' || o.tip === 'goto16') {
+        imlec += 2;
+      }
+    }
+    const birimler = [];
+    imlec = 0;
+    for (const o of this.ogeler) {
+      if (o.tip === 'label') continue;
+      if (o.tip === 'insns') {
+        birimler.push(...o.birimler);
+        imlec += o.birimler.length;
+      } else if (o.tip === 'branch21t') {
+        const hedef = this.etiketKonumlari.get(o.hedefEtiket);
+        if (hedef === undefined) throw new Error(`Etiket bulunamadı: ${o.hedefEtiket}`);
+        const fark = (hedef - imlec) & 0xffff;
+        birimler.push(((o.v & 0xff) << 8) | o.opcode, fark);
+        imlec += 2;
+      } else if (o.tip === 'goto16') {
+        const hedef = this.etiketKonumlari.get(o.hedefEtiket);
+        if (hedef === undefined) throw new Error(`Etiket bulunamadı: ${o.hedefEtiket}`);
+        const fark = (hedef - imlec) & 0xffff;
+        birimler.push(o.opcode, fark);
+        imlec += 2;
+      }
+    }
+    return { birimler, etiketler: this.etiketKonumlari };
+  }
+}
+
 const Op = {
   returnVoid: () => [0x000e],
   returnReg: (v) => [((v & 0xff) << 8) | 0x000f],
   returnObject: (v) => [((v & 0xff) << 8) | 0x0011],
   moveResult: (v) => [((v & 0xff) << 8) | 0x000a],
   moveResultObject: (v) => [((v & 0xff) << 8) | 0x000c],
+  moveException: (v) => [((v & 0xff) << 8) | 0x000d],
   const4: (v, val) => [((val & 0xf) << 12) | ((v & 0xf) << 8) | 0x0012],
-  const16: (v, val) => [((v & 0xff) << 8) | 0x0013, val & 0xffff],
   const32: (v, val) => [((v & 0xff) << 8) | 0x0014, val & 0xffff, (val >>> 16) & 0xffff],
   constString: (v, strIdx) => [((v & 0xff) << 8) | 0x001a, strIdx & 0xffff],
   checkCast: (v, typeIdx) => [((v & 0xff) << 8) | 0x001f, typeIdx & 0xffff],
@@ -65,7 +135,7 @@ const Op = {
     ((vObj & 0xf) << 12) | ((vSrc & 0xf) << 8) | 0x005b,
     fieldIdx & 0xffff
   ],
-  sgetObject: (vDest, fieldIdx) => [((vDest & 0xff) << 8) | 0x0060, fieldIdx & 0xffff],
+  doubleToFloat: (vDest, vSrc) => [((vSrc & 0xf) << 12) | ((vDest & 0xf) << 8) | 0x008c],
   invoke: (opcode, methodIdx, regList) => {
     const count = regList.length;
     const c = count > 0 ? regList[0] & 0xf : 0;
@@ -82,18 +152,20 @@ const Op = {
   invokeVirtual: (m, regs) => Op.invoke(0x6e, m, regs),
   invokeSuper: (m, regs) => Op.invoke(0x6f, m, regs),
   invokeDirect: (m, regs) => Op.invoke(0x70, m, regs),
-  invokeStatic: (m, regs) => Op.invoke(0x71, m, regs)
+  invokeStatic: (m, regs) => Op.invoke(0x71, m, regs),
+  invokeInterface: (m, regs) => Op.invoke(0x72, m, regs)
 };
 
 export function dexOlustur({
   paketKimligi = 'com.afyonevlezzetleri.kurye',
   surumAdi = '1.0.0',
-  surumKodu = 100
+  surumKodu = 102
 }) {
   const paketYolu = paketKimligi.replace(/\./g, '/');
   const T_MAIN = `L${paketYolu}/MainActivity;`;
+  const T_VARLIK = `L${paketYolu}/VarlikYukleyiciIstemci;`;
   const T_KOPRU = `L${paketYolu}/KuryeKopru;`;
-  const T_SERVIS = `L${paketYolu}/KuryeDinleyiciServisi;`;
+  const T_SERVIS = `L${paketYolu}/DinleyiciServisi;`;
   const T_BOOT = `L${paketYolu}/BootReceiver;`;
   const T_SAGLAYICI = `L${paketYolu}/ApkDosyaSaglayici;`;
 
@@ -144,13 +216,31 @@ export function dexOlustur({
     return anahtar;
   }
 
-  // Kullanılan sabit metinler ve API referansları
+  // Sabit metinler
   const STR_KOPRU_ADI = metinEkle('AfyonKuryeAndroid');
-  const STR_INDEX_URL = metinEkle('file:///android_asset/www/index.html');
+  const STR_BASLANGIC_URL = metinEkle('https://appassets.androidplatform.net/index.html');
+  const STR_KONAK = metinEkle('appassets.androidplatform.net');
+  const STR_INDEX_YOL = metinEkle('/index.html');
+  const STR_KOK_YOL = metinEkle('/');
+  const STR_WWW_ON_EK = metinEkle('www/');
+  const STR_UTF8 = metinEkle('UTF-8');
+  const STR_EXT_JS = metinEkle('.js');
+  const STR_EXT_CSS = metinEkle('.css');
+  const STR_EXT_JSON = metinEkle('.json');
+  const STR_EXT_SVG = metinEkle('.svg');
+  const STR_EXT_WAV = metinEkle('.wav');
+  const STR_MIME_JS = metinEkle('application/javascript');
+  const STR_MIME_CSS = metinEkle('text/css');
+  const STR_MIME_JSON = metinEkle('application/json');
+  const STR_MIME_SVG = metinEkle('image/svg+xml');
+  const STR_MIME_WAV = metinEkle('audio/wav');
+  const STR_MIME_BIN = metinEkle('application/octet-stream');
   const STR_TERCIH_ADI = metinEkle('AfyonKuryeTercihler');
   const STR_KURYE_ID = metinEkle('kurye_id');
   const STR_KURYE_ADI = metinEkle('kurye_adi');
-  const STR_VIBRATOR = metinEkle('vibrator');
+  const STR_ROL = metinEkle('kullanici_rol');
+  const STR_ZIL_KIMLIK = metinEkle('zil_kimlik');
+  const STR_ZIL_SES = metinEkle('zil_ses_seviyesi');
   const STR_UYGULAMA_BILGI = metinEkle(
     JSON.stringify({ paketAdi: paketKimligi, surumAdi, surumKodu })
   );
@@ -158,7 +248,6 @@ export function dexOlustur({
   const STR_ACTION_VIEW = metinEkle('android.intent.action.VIEW');
   const STR_ACTION_BATTERY = metinEkle('android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS');
   const STR_PKG_URI = metinEkle(`package:${paketKimligi}`);
-  const STR_DEFAULT_KURYE = metinEkle('Kurye');
 
   const T_OBJ = tipEkle('Ljava/lang/Object;');
   const T_STR = tipEkle('Ljava/lang/String;');
@@ -170,7 +259,12 @@ export function dexOlustur({
   const T_WVS = tipEkle('Landroid/webkit/WebSettings;');
   const T_WVC = tipEkle('Landroid/webkit/WebViewClient;');
   const T_WCC = tipEkle('Landroid/webkit/WebChromeClient;');
+  const T_WRQ = tipEkle('Landroid/webkit/WebResourceRequest;');
+  const T_WRS = tipEkle('Landroid/webkit/WebResourceResponse;');
   const T_JSIF = tipEkle('Landroid/webkit/JavascriptInterface;');
+  const T_AM = tipEkle('Landroid/content/res/AssetManager;');
+  const T_IS = tipEkle('Ljava/io/InputStream;');
+  const T_URLC = tipEkle('Ljava/net/URLConnection;');
   const T_SVC = tipEkle('Landroid/app/Service;');
   const T_BR = tipEkle('Landroid/content/BroadcastReceiver;');
   const T_CP = tipEkle('Landroid/content/ContentProvider;');
@@ -181,25 +275,35 @@ export function dexOlustur({
   const T_CV = tipEkle('Landroid/content/ContentValues;');
   const T_SP = tipEkle('Landroid/content/SharedPreferences;');
   const T_SPE = tipEkle('Landroid/content/SharedPreferences$Editor;');
-  const T_VIB = tipEkle('Landroid/os/Vibrator;');
   const T_RM = tipEkle('Landroid/media/RingtoneManager;');
   const T_RING = tipEkle('Landroid/media/Ringtone;');
-  const T_COMP = tipEkle('Landroid/content/ComponentName;');
   tipEkle('[Ljava/lang/String;');
 
   // Alanlar
+  const F_VARLIK_AKTIVITE = alanEkle(T_VARLIK, 'aktivite', T_ACT);
   const F_KOPRU_AKTIVITE = alanEkle(T_KOPRU, 'aktivite', T_ACT);
 
   // Dış metotlar
   const M_OBJ_INIT = metotEkle(T_OBJ, '<init>', 'V', []);
+  const M_OBJ_EQUALS = metotEkle(T_OBJ, 'equals', 'Z', [T_OBJ]);
+  const M_STR_EQ_IGN = metotEkle(T_STR, 'equalsIgnoreCase', 'Z', [T_STR]);
+  const M_STR_STARTS = metotEkle(T_STR, 'startsWith', 'Z', [T_STR]);
+  const M_STR_ENDS = metotEkle(T_STR, 'endsWith', 'Z', [T_STR]);
+  const M_STR_SUB = metotEkle(T_STR, 'substring', T_STR, ['I']);
+  const M_STR_CONCAT = metotEkle(T_STR, 'concat', T_STR, [T_STR]);
+  const M_STR_LOWER = metotEkle(T_STR, 'toLowerCase', T_STR, []);
+
   const M_ACT_INIT = metotEkle(T_ACT, '<init>', 'V', []);
   const M_ACT_ONCREATE = metotEkle(T_ACT, 'onCreate', 'V', [T_BND]);
   const M_ACT_REQ_FEAT = metotEkle(T_ACT, 'requestWindowFeature', 'Z', ['I']);
   const M_ACT_SET_CV = metotEkle(T_ACT, 'setContentView', 'V', [T_VIEW]);
   const M_ACT_GET_SP = metotEkle(T_ACT, 'getSharedPreferences', T_SP, [T_STR, 'I']);
-  const M_ACT_GET_SS = metotEkle(T_ACT, 'getSystemService', T_OBJ, [T_STR]);
+  const M_ACT_GET_ASSETS = metotEkle(T_ACT, 'getAssets', T_AM, []);
   const M_ACT_START_ACT = metotEkle(T_ACT, 'startActivity', 'V', [T_INTENT]);
-  const M_ACT_START_SVC = metotEkle(T_ACT, 'startService', T_COMP, [T_INTENT]);
+
+  const M_AM_OPEN = metotEkle(T_AM, 'open', T_IS, [T_STR]);
+  const M_URLC_GUESS = metotEkle(T_URLC, 'guessContentTypeFromName', T_STR, [T_STR]);
+  const M_WRS_INIT = metotEkle(T_WRS, '<init>', 'V', [T_STR, T_STR, T_IS]);
 
   const M_WV_INIT = metotEkle(T_WV, '<init>', 'V', [T_CTX]);
   const M_WV_BG = metotEkle(T_WV, 'setBackgroundColor', 'V', ['I']);
@@ -217,21 +321,23 @@ export function dexOlustur({
 
   const M_WVC_INIT = metotEkle(T_WVC, '<init>', 'V', []);
   const M_WCC_INIT = metotEkle(T_WCC, '<init>', 'V', []);
+  const M_WRQ_URL = metotEkle(T_WRQ, 'getUrl', T_URI, []);
+
+  const M_URI_PARSE = metotEkle(T_URI, 'parse', T_URI, [T_STR]);
+  const M_URI_HOST = metotEkle(T_URI, 'getHost', T_STR, []);
+  const M_URI_PATH = metotEkle(T_URI, 'getPath', T_STR, []);
 
   const M_SP_EDIT = metotEkle(T_SP, 'edit', T_SPE, []);
-  const M_SPE_PUT = metotEkle(T_SPE, 'putString', T_SPE, [T_STR, T_STR]);
+  const M_SPE_PUT_STR = metotEkle(T_SPE, 'putString', T_SPE, [T_STR, T_STR]);
+  const M_SPE_PUT_FLT = metotEkle(T_SPE, 'putFloat', T_SPE, [T_STR, 'F']);
   const M_SPE_REM = metotEkle(T_SPE, 'remove', T_SPE, [T_STR]);
   const M_SPE_APPLY = metotEkle(T_SPE, 'apply', 'V', []);
 
-  const M_VIB_VIBRATE = metotEkle(T_VIB, 'vibrate', 'V', ['J']);
   const M_RM_URI = metotEkle(T_RM, 'getDefaultUri', T_URI, ['I']);
   const M_RM_GET = metotEkle(T_RM, 'getRingtone', T_RING, [T_CTX, T_URI]);
   const M_RING_PLAY = metotEkle(T_RING, 'play', 'V', []);
 
-  const M_URI_PARSE = metotEkle(T_URI, 'parse', T_URI, [T_STR]);
   const M_INTENT_ACT_URI = metotEkle(T_INTENT, '<init>', 'V', [T_STR, T_URI]);
-  const M_INTENT_CTX_CLS = metotEkle(T_INTENT, '<init>', 'V', [T_CTX, tipEkle('Ljava/lang/Class;')]);
-
   const M_SVC_INIT = metotEkle(T_SVC, '<init>', 'V', []);
   const M_BR_INIT = metotEkle(T_BR, '<init>', 'V', []);
   const M_CP_INIT = metotEkle(T_CP, '<init>', 'V', []);
@@ -240,15 +346,19 @@ export function dexOlustur({
   const M_MAIN_INIT = metotEkle(T_MAIN, '<init>', 'V', []);
   const M_MAIN_ONCREATE = metotEkle(T_MAIN, 'onCreate', 'V', [T_BND]);
 
+  const M_VARLIK_INIT = metotEkle(T_VARLIK, '<init>', 'V', [T_ACT]);
+  const M_VARLIK_INTERCEPT = metotEkle(T_VARLIK, 'shouldInterceptRequest', T_WRS, [T_WV, T_WRQ]);
+
   const M_KOPRU_INIT = metotEkle(T_KOPRU, '<init>', 'V', [T_ACT]);
-  const M_KOPRU_OTURUM_KAYDET = metotEkle(T_KOPRU, 'oturumBilgisiKaydet', 'V', [T_STR, T_STR]);
-  const M_KOPRU_OTURUM_TEMIZLE = metotEkle(T_KOPRU, 'oturumTemizle', 'V', []);
-  const M_KOPRU_TITRE = metotEkle(T_KOPRU, 'titre', 'V', ['J']);
-  const M_KOPRU_ALARM = metotEkle(T_KOPRU, 'sesliAlarmCal', 'V', [T_STR, T_STR]);
+  const M_KOPRU_OTURUM_AYARLA = metotEkle(T_KOPRU, 'oturumAyarla', 'V', [T_STR, T_STR, T_STR]);
+  const M_KOPRU_OTURUM_KAPAT = metotEkle(T_KOPRU, 'oturumKapat', 'V', []);
+  const M_KOPRU_ZIL_AYARLA = metotEkle(T_KOPRU, 'zilAyarla', 'V', [T_STR, 'D', T_STR]);
+  const M_KOPRU_ZIL_CAL = metotEkle(T_KOPRU, 'zilCal', 'V', [T_STR, T_STR, 'Z', 'I']);
+  const M_KOPRU_ZIL_SUSTUR = metotEkle(T_KOPRU, 'zilSustur', 'V', []);
   const M_KOPRU_PIL_VAR = metotEkle(T_KOPRU, 'pilMuafiyetiVarMi', 'Z', []);
-  const M_KOPRU_PIL_ISTE = metotEkle(T_KOPRU, 'pilMuafiyetiIste', 'V', []);
-  const M_KOPRU_BILGI = metotEkle(T_KOPRU, 'uygulamaBilgisiGetir', T_STR, []);
-  const M_KOPRU_GUNCELLE = metotEkle(T_KOPRU, 'apkGuncelleIndirVeKur', 'V', [T_STR, T_STR]);
+  const M_KOPRU_PIL_ISTE = metotEkle(T_KOPRU, 'pilOptimizasyonuIste', 'V', []);
+  const M_KOPRU_SURUM = metotEkle(T_KOPRU, 'uygulamaSurumu', T_STR, []);
+  const M_KOPRU_GUNCELLE = metotEkle(T_KOPRU, 'apkGuncelleIndirVeKur', 'V', [T_STR]);
 
   const M_SVC_K_INIT = metotEkle(T_SERVIS, '<init>', 'V', []);
   const M_SVC_ONBIND = metotEkle(T_SERVIS, 'onBind', T_IBINDER, [T_INTENT]);
@@ -265,7 +375,7 @@ export function dexOlustur({
   const M_SAG_DELETE = metotEkle(T_SAGLAYICI, 'delete', 'I', [T_URI, T_STR, '[Ljava/lang/String;']);
   const M_SAG_UPDATE = metotEkle(T_SAGLAYICI, 'update', 'I', [T_URI, T_CV, T_STR, '[Ljava/lang/String;']);
 
-  // Sıralama (DEX spesifikasyonu zorunluluğu)
+  // DEX Sıralaması
   const siraliMetinler = [...metinKumesi].sort((a, b) =>
     Buffer.compare(Buffer.from(a, 'utf8'), Buffer.from(b, 'utf8'))
   );
@@ -309,22 +419,115 @@ export function dexOlustur({
   const fIdx = (f) => alanIndeks.get(f);
   const mIdx = (m) => metotIndeks.get(m);
 
-  // Metot kod gövdelerini oluştur
-  function kodHazirla(metotAnahtari, locals, outs, insnsList) {
+  function kodHazirla(metotAnahtari, locals, outs, insnsList, denemeYakala = null) {
     const m = metotHaritasi.get(metotAnahtari);
     const ins = 1 + m.paramlar.reduce((t, p) => t + tipGenisligi(p), 0);
-    const insns = insnsList.flat();
     return {
       metotAnahtari,
       registersSize: locals + ins,
       insSize: ins,
       outsSize: outs,
-      insns
+      insns: insnsList.flat(),
+      denemeYakala
     };
   }
 
-  // MainActivity.onCreate: WebView oluştur + JS/DOM/Geo/File aç + AfyonKuryeAndroid bağla + file:///android_asset/www/index.html yükle
-  // locals = 3 (v0, v1, v2), ins = 2 (p0=v3=this, p1=v4=Bundle), outs = 3
+  // VarlikYukleyiciIstemci.shouldInterceptRequest(WebView, WebResourceRequest) -> WebResourceResponse
+  // locals = 4 (v0..v3), ins = 3 (v4=this, v5=view, v6=request), outs = 4
+  const varlikKb = new KodBirlestirici();
+  varlikKb
+    .ekle(Op.invokeInterface(mIdx(M_WRQ_URL), [6]))
+    .ekle(Op.moveResultObject(0))
+    .ifEqz(0, 'bosDon')
+    .ekle(Op.invokeVirtual(mIdx(M_URI_HOST), [0]))
+    .ekle(Op.moveResultObject(1))
+    .ekle(Op.constString(2, sIdx(STR_KONAK)))
+    .ekle(Op.invokeVirtual(mIdx(M_STR_EQ_IGN), [2, 1]))
+    .ekle(Op.moveResult(1))
+    .ifEqz(1, 'bosDon')
+    .ekle(Op.invokeVirtual(mIdx(M_URI_PATH), [0]))
+    .ekle(Op.moveResultObject(0))
+    .ifNez(0, 'yolKontrol')
+    .ekle(Op.constString(0, sIdx(STR_INDEX_YOL)))
+    .etiket('yolKontrol')
+    .ekle(Op.constString(1, sIdx(STR_KOK_YOL)))
+    .ekle(Op.invokeVirtual(mIdx(M_OBJ_EQUALS), [1, 0]))
+    .ekle(Op.moveResult(2))
+    .ifEqz(2, 'basTaksim')
+    .ekle(Op.constString(0, sIdx(STR_INDEX_YOL)))
+    .etiket('basTaksim')
+    .ekle(Op.invokeVirtual(mIdx(M_STR_STARTS), [0, 1]))
+    .ekle(Op.moveResult(1))
+    .ifEqz(1, 'varlikAcBas')
+    .ekle(Op.const4(1, 1))
+    .ekle(Op.invokeVirtual(mIdx(M_STR_SUB), [0, 1]))
+    .ekle(Op.moveResultObject(0))
+    .etiket('varlikAcBas')
+    .ekle(Op.igetObject(1, 4, fIdx(F_VARLIK_AKTIVITE)))
+    .ekle(Op.invokeVirtual(mIdx(M_ACT_GET_ASSETS), [1]))
+    .ekle(Op.moveResultObject(1))
+    .ekle(Op.constString(2, sIdx(STR_WWW_ON_EK)))
+    .ekle(Op.invokeVirtual(mIdx(M_STR_CONCAT), [2, 0]))
+    .ekle(Op.moveResultObject(2))
+    .ekle(Op.invokeVirtual(mIdx(M_AM_OPEN), [1, 2]))
+    .ekle(Op.moveResultObject(1))
+    .ekle(Op.invokeVirtual(mIdx(M_STR_LOWER), [0]))
+    .ekle(Op.moveResultObject(0))
+    .ekle(Op.constString(2, sIdx(STR_EXT_JS)))
+    .ekle(Op.invokeVirtual(mIdx(M_STR_ENDS), [0, 2]))
+    .ekle(Op.moveResult(2))
+    .ifEqz(2, 'mimeCss')
+    .ekle(Op.constString(0, sIdx(STR_MIME_JS)))
+    .git('yanitOlustur')
+    .etiket('mimeCss')
+    .ekle(Op.constString(2, sIdx(STR_EXT_CSS)))
+    .ekle(Op.invokeVirtual(mIdx(M_STR_ENDS), [0, 2]))
+    .ekle(Op.moveResult(2))
+    .ifEqz(2, 'mimeJson')
+    .ekle(Op.constString(0, sIdx(STR_MIME_CSS)))
+    .git('yanitOlustur')
+    .etiket('mimeJson')
+    .ekle(Op.constString(2, sIdx(STR_EXT_JSON)))
+    .ekle(Op.invokeVirtual(mIdx(M_STR_ENDS), [0, 2]))
+    .ekle(Op.moveResult(2))
+    .ifEqz(2, 'mimeSvg')
+    .ekle(Op.constString(0, sIdx(STR_MIME_JSON)))
+    .git('yanitOlustur')
+    .etiket('mimeSvg')
+    .ekle(Op.constString(2, sIdx(STR_EXT_SVG)))
+    .ekle(Op.invokeVirtual(mIdx(M_STR_ENDS), [0, 2]))
+    .ekle(Op.moveResult(2))
+    .ifEqz(2, 'mimeWav')
+    .ekle(Op.constString(0, sIdx(STR_MIME_SVG)))
+    .git('yanitOlustur')
+    .etiket('mimeWav')
+    .ekle(Op.constString(2, sIdx(STR_EXT_WAV)))
+    .ekle(Op.invokeVirtual(mIdx(M_STR_ENDS), [0, 2]))
+    .ekle(Op.moveResult(2))
+    .ifEqz(2, 'mimeTahmin')
+    .ekle(Op.constString(0, sIdx(STR_MIME_WAV)))
+    .git('yanitOlustur')
+    .etiket('mimeTahmin')
+    .ekle(Op.invokeStatic(mIdx(M_URLC_GUESS), [0]))
+    .ekle(Op.moveResultObject(0))
+    .ifNez(0, 'yanitOlustur')
+    .ekle(Op.constString(0, sIdx(STR_MIME_BIN)))
+    .etiket('yanitOlustur')
+    .ekle(Op.newInstance(2, tIdx(T_WRS)))
+    .ekle(Op.constString(3, sIdx(STR_UTF8)))
+    .ekle(Op.invokeDirect(mIdx(M_WRS_INIT), [2, 0, 3, 1]))
+    .ekle(Op.returnObject(2))
+    .etiket('varlikAcSon')
+    .ekle(Op.moveException(0))
+    .etiket('bosDon')
+    .ekle(Op.const4(0, 0))
+    .ekle(Op.returnObject(0));
+
+  const varlikDerlenen = varlikKb.derle();
+  const tryStart = varlikDerlenen.etiketler.get('varlikAcBas');
+  const tryEnd = varlikDerlenen.etiketler.get('varlikAcSon');
+
+  // MainActivity.onCreate: https://appassets.androidplatform.net/index.html üzerinden aç
   const mainOnCreateKod = kodHazirla(M_MAIN_ONCREATE, 3, 3, [
     Op.invokeSuper(mIdx(M_ACT_ONCREATE), [3, 4]),
     Op.const4(0, 1),
@@ -345,28 +548,21 @@ export function dexOlustur({
     Op.invokeDirect(mIdx(M_KOPRU_INIT), [1, 3]),
     Op.constString(2, sIdx(STR_KOPRU_ADI)),
     Op.invokeVirtual(mIdx(M_WV_ADD_JS), [0, 1, 2]),
-    Op.newInstance(1, tIdx(T_WVC)),
-    Op.invokeDirect(mIdx(M_WVC_INIT), [1]),
+    Op.newInstance(1, tIdx(T_VARLIK)),
+    Op.invokeDirect(mIdx(M_VARLIK_INIT), [1, 3]),
     Op.invokeVirtual(mIdx(M_WV_SET_WVC), [0, 1]),
     Op.newInstance(1, tIdx(T_WCC)),
     Op.invokeDirect(mIdx(M_WCC_INIT), [1]),
     Op.invokeVirtual(mIdx(M_WV_SET_WCC), [0, 1]),
     Op.invokeVirtual(mIdx(M_ACT_SET_CV), [3, 0]),
-    Op.constString(1, sIdx(STR_INDEX_URL)),
+    Op.constString(1, sIdx(STR_BASLANGIC_URL)),
     Op.invokeVirtual(mIdx(M_WV_LOAD), [0, 1]),
     Op.returnVoid()
   ]);
 
-  // KuryeKopru.<init>(Activity)
-  const kopruInitKod = kodHazirla(M_KOPRU_INIT, 0, 1, [
-    Op.invokeDirect(mIdx(M_OBJ_INIT), [0]),
-    Op.iputObject(1, 0, fIdx(F_KOPRU_AKTIVITE)),
-    Op.returnVoid()
-  ]);
-
-  // oturumBilgisiKaydet(String kuryeId, String kuryeAdi) -> SharedPreferences'a kaydeder
-  // locals = 3 (v0, v1, v2), ins = 3 (v3=this, v4=kuryeId, v5=kuryeAdi)
-  const kopruOturumKaydetKod = kodHazirla(M_KOPRU_OTURUM_KAYDET, 3, 3, [
+  // KuryeKopru.oturumAyarla(String kuryeId, String kuryeAdi, String rol)
+  // locals = 3 (v0, v1, v2), ins = 4 (v3=this, v4=kuryeId, v5=kuryeAdi, v6=rol)
+  const kopruOturumAyarlaKod = kodHazirla(M_KOPRU_OTURUM_AYARLA, 3, 3, [
     Op.igetObject(0, 3, fIdx(F_KOPRU_AKTIVITE)),
     Op.constString(1, sIdx(STR_TERCIH_ADI)),
     Op.const4(2, 0),
@@ -375,18 +571,20 @@ export function dexOlustur({
     Op.invokeVirtual(mIdx(M_SP_EDIT), [0]),
     Op.moveResultObject(0),
     Op.constString(1, sIdx(STR_KURYE_ID)),
-    Op.invokeVirtual(mIdx(M_SPE_PUT), [0, 1, 4]),
+    Op.invokeVirtual(mIdx(M_SPE_PUT_STR), [0, 1, 4]),
     Op.moveResultObject(0),
     Op.constString(1, sIdx(STR_KURYE_ADI)),
-    Op.invokeVirtual(mIdx(M_SPE_PUT), [0, 1, 5]),
+    Op.invokeVirtual(mIdx(M_SPE_PUT_STR), [0, 1, 5]),
+    Op.moveResultObject(0),
+    Op.constString(1, sIdx(STR_ROL)),
+    Op.invokeVirtual(mIdx(M_SPE_PUT_STR), [0, 1, 6]),
     Op.moveResultObject(0),
     Op.invokeVirtual(mIdx(M_SPE_APPLY), [0]),
     Op.returnVoid()
   ]);
 
-  // oturumTemizle()
-  // locals = 3 (v0, v1, v2), ins = 1 (v3=this)
-  const kopruOturumTemizleKod = kodHazirla(M_KOPRU_OTURUM_TEMIZLE, 3, 3, [
+  // KuryeKopru.oturumKapat()
+  const kopruOturumKapatKod = kodHazirla(M_KOPRU_OTURUM_KAPAT, 3, 3, [
     Op.igetObject(0, 3, fIdx(F_KOPRU_AKTIVITE)),
     Op.constString(1, sIdx(STR_TERCIH_ADI)),
     Op.const4(2, 0),
@@ -404,31 +602,44 @@ export function dexOlustur({
     Op.returnVoid()
   ]);
 
-  // titre(long sureMs) -> ins = 3 (v2=this, v3..v4=sureMs)
-  const kopruTitreKod = kodHazirla(M_KOPRU_TITRE, 2, 3, [
-    Op.igetObject(0, 2, fIdx(F_KOPRU_AKTIVITE)),
-    Op.constString(1, sIdx(STR_VIBRATOR)),
-    Op.invokeVirtual(mIdx(M_ACT_GET_SS), [0, 1]),
-    Op.moveResultObject(0),
-    Op.checkCast(0, tIdx(T_VIB)),
-    Op.invokeVirtual(mIdx(M_VIB_VIBRATE), [0, 3, 4]),
-    Op.returnVoid()
-  ]);
-
-  // sesliAlarmCal(String, String) -> zil çal
-  // locals = 3, ins = 3 (v3=this)
-  const kopruAlarmKod = kodHazirla(M_KOPRU_ALARM, 3, 2, [
-    Op.const4(0, 2), // TYPE_NOTIFICATION
-    Op.invokeStatic(mIdx(M_RM_URI), [0]),
-    Op.moveResultObject(1),
+  // KuryeKopru.zilAyarla(String seciliKimlik, double sesSeviyesi, String ozelSesVeriUrl)
+  // locals = 3 (v0, v1, v2), ins = 5 (v3=this, v4=seciliKimlik, v5..v6=sesSeviyesi, v7=ozelSesVeriUrl)
+  const kopruZilAyarlaKod = kodHazirla(M_KOPRU_ZIL_AYARLA, 3, 3, [
     Op.igetObject(0, 3, fIdx(F_KOPRU_AKTIVITE)),
-    Op.invokeStatic(mIdx(M_RM_GET), [0, 1]),
+    Op.constString(1, sIdx(STR_TERCIH_ADI)),
+    Op.const4(2, 0),
+    Op.invokeVirtual(mIdx(M_ACT_GET_SP), [0, 1, 2]),
     Op.moveResultObject(0),
-    Op.invokeVirtual(mIdx(M_RING_PLAY), [0]),
+    Op.invokeVirtual(mIdx(M_SP_EDIT), [0]),
+    Op.moveResultObject(0),
+    Op.constString(1, sIdx(STR_ZIL_KIMLIK)),
+    Op.invokeVirtual(mIdx(M_SPE_PUT_STR), [0, 1, 4]),
+    Op.moveResultObject(0),
+    Op.constString(1, sIdx(STR_ZIL_SES)),
+    Op.doubleToFloat(2, 5),
+    Op.invokeVirtual(mIdx(M_SPE_PUT_FLT), [0, 1, 2]),
+    Op.moveResultObject(0),
+    Op.invokeVirtual(mIdx(M_SPE_APPLY), [0]),
     Op.returnVoid()
   ]);
 
-  // pilMuafiyetiIste()
+  // KuryeKopru.zilCal(String, String, boolean, int)
+  const alarmKb = new KodBirlestirici();
+  alarmKb
+    .ekle(Op.const4(0, 2))
+    .ekle(Op.invokeStatic(mIdx(M_RM_URI), [0]))
+    .ekle(Op.moveResultObject(1))
+    .ekle(Op.igetObject(0, 3, fIdx(F_KOPRU_AKTIVITE)))
+    .ekle(Op.invokeStatic(mIdx(M_RM_GET), [0, 1]))
+    .ekle(Op.moveResultObject(0))
+    .ifEqz(0, 'bitti')
+    .ekle(Op.invokeVirtual(mIdx(M_RING_PLAY), [0]))
+    .etiket('bitti')
+    .ekle(Op.returnVoid());
+
+  const kopruZilCalKod = kodHazirla(M_KOPRU_ZIL_CAL, 3, 2, [alarmKb.derle().birimler]);
+
+  // KuryeKopru.pilOptimizasyonuIste()
   const kopruPilIsteKod = kodHazirla(M_KOPRU_PIL_ISTE, 3, 3, [
     Op.constString(0, sIdx(STR_PKG_URI)),
     Op.invokeStatic(mIdx(M_URI_PARSE), [0]),
@@ -441,8 +652,7 @@ export function dexOlustur({
     Op.returnVoid()
   ]);
 
-  // apkGuncelleIndirVeKur(String url, String version)
-  // locals = 3, ins = 3 (v3=this, v4=url, v5=version)
+  // KuryeKopru.apkGuncelleIndirVeKur(String indirmeUrl)
   const kopruGuncelleKod = kodHazirla(M_KOPRU_GUNCELLE, 3, 3, [
     Op.invokeStatic(mIdx(M_URI_PARSE), [4]),
     Op.moveResultObject(0),
@@ -458,14 +668,39 @@ export function dexOlustur({
     [M_MAIN_INIT, kodHazirla(M_MAIN_INIT, 0, 1, [Op.invokeDirect(mIdx(M_ACT_INIT), [0]), Op.returnVoid()])],
     [M_MAIN_ONCREATE, mainOnCreateKod],
 
-    [M_KOPRU_INIT, kopruInitKod],
-    [M_KOPRU_OTURUM_KAYDET, kopruOturumKaydetKod],
-    [M_KOPRU_OTURUM_TEMIZLE, kopruOturumTemizleKod],
-    [M_KOPRU_TITRE, kopruTitreKod],
-    [M_KOPRU_ALARM, kopruAlarmKod],
+    [
+      M_VARLIK_INIT,
+      kodHazirla(M_VARLIK_INIT, 0, 1, [
+        Op.invokeDirect(mIdx(M_WVC_INIT), [0]),
+        Op.iputObject(1, 0, fIdx(F_VARLIK_AKTIVITE)),
+        Op.returnVoid()
+      ])
+    ],
+    [
+      M_VARLIK_INTERCEPT,
+      kodHazirla(M_VARLIK_INTERCEPT, 4, 4, [varlikDerlenen.birimler], {
+        startAddr: tryStart,
+        insnCount: tryEnd - tryStart,
+        catchAddr: tryEnd
+      })
+    ],
+
+    [
+      M_KOPRU_INIT,
+      kodHazirla(M_KOPRU_INIT, 0, 1, [
+        Op.invokeDirect(mIdx(M_OBJ_INIT), [0]),
+        Op.iputObject(1, 0, fIdx(F_KOPRU_AKTIVITE)),
+        Op.returnVoid()
+      ])
+    ],
+    [M_KOPRU_OTURUM_AYARLA, kopruOturumAyarlaKod],
+    [M_KOPRU_OTURUM_KAPAT, kopruOturumKapatKod],
+    [M_KOPRU_ZIL_AYARLA, kopruZilAyarlaKod],
+    [M_KOPRU_ZIL_CAL, kopruZilCalKod],
+    [M_KOPRU_ZIL_SUSTUR, kodHazirla(M_KOPRU_ZIL_SUSTUR, 0, 0, [Op.returnVoid()])],
     [M_KOPRU_PIL_VAR, kodHazirla(M_KOPRU_PIL_VAR, 1, 0, [Op.const4(0, 0), Op.returnReg(0)])],
     [M_KOPRU_PIL_ISTE, kopruPilIsteKod],
-    [M_KOPRU_BILGI, kodHazirla(M_KOPRU_BILGI, 1, 0, [Op.constString(0, sIdx(STR_UYGULAMA_BILGI)), Op.returnObject(0)])],
+    [M_KOPRU_SURUM, kodHazirla(M_KOPRU_SURUM, 1, 0, [Op.constString(0, sIdx(STR_UYGULAMA_BILGI)), Op.returnObject(0)])],
     [M_KOPRU_GUNCELLE, kopruGuncelleKod],
 
     [M_SVC_K_INIT, kodHazirla(M_SVC_K_INIT, 0, 1, [Op.invokeDirect(mIdx(M_SVC_INIT), [0]), Op.returnVoid()])],
@@ -488,36 +723,47 @@ export function dexOlustur({
     {
       tip: T_MAIN,
       ustTip: T_ACT,
-      erisim: 0x0001, // public
+      erisim: 0x0001,
       alanlar: [],
       dogrudanMetotlar: [M_MAIN_INIT],
       sanalMetotlar: [M_MAIN_ONCREATE],
       ekliMetotlar: []
     },
     {
+      tip: T_VARLIK,
+      ustTip: T_WVC,
+      erisim: 0x0001,
+      alanlar: [{ anahtar: F_VARLIK_AKTIVITE, erisim: 0x0012 }],
+      dogrudanMetotlar: [M_VARLIK_INIT],
+      sanalMetotlar: [M_VARLIK_INTERCEPT],
+      ekliMetotlar: []
+    },
+    {
       tip: T_KOPRU,
       ustTip: T_OBJ,
       erisim: 0x0001,
-      alanlar: [{ anahtar: F_KOPRU_AKTIVITE, erisim: 0x0012 }], // private final
+      alanlar: [{ anahtar: F_KOPRU_AKTIVITE, erisim: 0x0012 }],
       dogrudanMetotlar: [M_KOPRU_INIT],
       sanalMetotlar: [
-        M_KOPRU_OTURUM_KAYDET,
-        M_KOPRU_OTURUM_TEMIZLE,
-        M_KOPRU_TITRE,
-        M_KOPRU_ALARM,
+        M_KOPRU_OTURUM_AYARLA,
+        M_KOPRU_OTURUM_KAPAT,
+        M_KOPRU_ZIL_AYARLA,
+        M_KOPRU_ZIL_CAL,
+        M_KOPRU_ZIL_SUSTUR,
         M_KOPRU_PIL_VAR,
         M_KOPRU_PIL_ISTE,
-        M_KOPRU_BILGI,
+        M_KOPRU_SURUM,
         M_KOPRU_GUNCELLE
       ],
       ekliMetotlar: [
-        M_KOPRU_OTURUM_KAYDET,
-        M_KOPRU_OTURUM_TEMIZLE,
-        M_KOPRU_TITRE,
-        M_KOPRU_ALARM,
+        M_KOPRU_OTURUM_AYARLA,
+        M_KOPRU_OTURUM_KAPAT,
+        M_KOPRU_ZIL_AYARLA,
+        M_KOPRU_ZIL_CAL,
+        M_KOPRU_ZIL_SUSTUR,
         M_KOPRU_PIL_VAR,
         M_KOPRU_PIL_ISTE,
-        M_KOPRU_BILGI,
+        M_KOPRU_SURUM,
         M_KOPRU_GUNCELLE
       ]
     },
@@ -550,7 +796,6 @@ export function dexOlustur({
     }
   ];
 
-  // Sabit boyutlu indeks tablolarının ofset hesapları
   const BASLIK_BOYUTU = 0x70;
   const stringIdsOff = BASLIK_BOYUTU;
   const typeIdsOff = stringIdsOff + siraliMetinler.length * 4;
@@ -560,11 +805,10 @@ export function dexOlustur({
   const classDefsOff = methodIdsOff + siraliMetotlar.length * 8;
   const dataOff = dortBaytaHizala(classDefsOff + sinifTanimlari.length * 32);
 
-  // Veri bölümünü inşa et
   const veriParcalari = [];
   let veriImleci = dataOff;
   const haritaKayitlari = [
-    { tip: 0x0000, boyut: 1, ofset: 0 }, // TYPE_HEADER_ITEM
+    { tip: 0x0000, boyut: 1, ofset: 0 },
     { tip: 0x0001, boyut: siraliMetinler.length, ofset: stringIdsOff },
     { tip: 0x0002, boyut: siraliTipler.length, ofset: typeIdsOff },
     { tip: 0x0003, boyut: siraliProtolar.length, ofset: protoIdsOff },
@@ -587,7 +831,7 @@ export function dexOlustur({
     return baslangic;
   }
 
-  // 1. type_list (proto parametreleri)
+  // 1. type_list
   const protoParamOfsetleri = new Map();
   let typeListIlkOfset = 0;
   let typeListSayisi = 0;
@@ -609,23 +853,42 @@ export function dexOlustur({
     haritaKayitlari.push({ tip: 0x1001, boyut: typeListSayisi, ofset: typeListIlkOfset });
   }
 
-  // 2. code_item blokları (4 bayt hizalı)
+  // 2. code_item blokları
   const kodOfsetleri = new Map();
   let codeIlkOfset = 0;
   let codeSayisi = 0;
   for (const [anahtar, kod] of metotKodlari.entries()) {
     veriHizala(4);
-    const cBuf = Buffer.alloc(16 + kod.insns.length * 2);
+    const triesSayisi = kod.denemeYakala ? 1 : 0;
+    const hizalamaPad = triesSayisi > 0 && kod.insns.length % 2 === 1 ? 2 : 0;
+
+    let tryParca = Buffer.alloc(0);
+    if (kod.denemeYakala) {
+      const tryItem = Buffer.alloc(8);
+      tryItem.writeUInt32LE(kod.denemeYakala.startAddr, 0);
+      tryItem.writeUInt16LE(kod.denemeYakala.insnCount, 4);
+      tryItem.writeUInt16LE(1, 6); // handler_off (1 bayt sonra: size uleb128(1)'den hemen sonra)
+
+      const yakalayiciListesi = Buffer.concat([
+        uleb128Yaz(1),
+        sleb128Yaz(0), // 0 => sadece catch-all
+        uleb128Yaz(kod.denemeYakala.catchAddr)
+      ]);
+      tryParca = Buffer.concat([tryItem, yakalayiciListesi]);
+    }
+
+    const cBuf = Buffer.alloc(16 + kod.insns.length * 2 + hizalamaPad);
     cBuf.writeUInt16LE(kod.registersSize, 0);
     cBuf.writeUInt16LE(kod.insSize, 2);
     cBuf.writeUInt16LE(kod.outsSize, 4);
-    cBuf.writeUInt16LE(0, 6); // tries_size
-    cBuf.writeUInt32LE(0, 8); // debug_info_off
+    cBuf.writeUInt16LE(triesSayisi, 6);
+    cBuf.writeUInt32LE(0, 8);
     cBuf.writeUInt32LE(kod.insns.length, 12);
     for (let i = 0; i < kod.insns.length; i++) {
       cBuf.writeUInt16LE(kod.insns[i] & 0xffff, 16 + i * 2);
     }
-    const ofset = veriEkle(cBuf);
+
+    const ofset = veriEkle(Buffer.concat([cBuf, tryParca]));
     if (codeSayisi === 0) codeIlkOfset = ofset;
     codeSayisi++;
     kodOfsetleri.set(anahtar, ofset);
@@ -634,9 +897,9 @@ export function dexOlustur({
 
   // 3. @JavascriptInterface ek açıklamaları
   const annItemBuf = Buffer.concat([
-    Buffer.from([0x01]), // VISIBILITY_RUNTIME
+    Buffer.from([0x01]),
     uleb128Yaz(tIdx(T_JSIF)),
-    uleb128Yaz(0) // size = 0
+    uleb128Yaz(0)
   ]);
   const annItemOff = veriEkle(annItemBuf);
   haritaKayitlari.push({ tip: 0x2004, boyut: 1, ofset: annItemOff });
@@ -656,10 +919,10 @@ export function dexOlustur({
       veriHizala(4);
       const siraliEkli = [...s.ekliMetotlar].sort((a, b) => mIdx(a) - mIdx(b));
       const dirBuf = Buffer.alloc(16 + siraliEkli.length * 8);
-      dirBuf.writeUInt32LE(0, 0); // class_annotations_off
-      dirBuf.writeUInt32LE(0, 4); // fields_size
-      dirBuf.writeUInt32LE(siraliEkli.length, 8); // annotated_methods_size
-      dirBuf.writeUInt32LE(0, 12); // annotated_parameters_size
+      dirBuf.writeUInt32LE(0, 0);
+      dirBuf.writeUInt32LE(0, 4);
+      dirBuf.writeUInt32LE(siraliEkli.length, 8);
+      dirBuf.writeUInt32LE(0, 12);
       siraliEkli.forEach((ma, idx) => {
         dirBuf.writeUInt32LE(mIdx(ma), 16 + idx * 8);
         dirBuf.writeUInt32LE(annSetOff, 16 + idx * 8 + 4);
@@ -676,7 +939,7 @@ export function dexOlustur({
     haritaKayitlari.push({ tip: 0x2006, boyut: annDirSayisi, ofset: annDirIlkOfset });
   }
 
-  // 4. string_data_item kayıtları
+  // 4. string_data_item
   const stringDataOfsetleri = [];
   const strIlkOfset = veriImleci;
   for (const s of siraliMetinler) {
@@ -686,7 +949,7 @@ export function dexOlustur({
   }
   haritaKayitlari.push({ tip: 0x2002, boyut: siraliMetinler.length, ofset: strIlkOfset });
 
-  // 5. class_data_item kayıtları
+  // 5. class_data_item
   const classDataOfsetleri = new Map();
   const classDataIlkOfset = veriImleci;
   for (const s of sinifTanimlari) {
@@ -695,8 +958,8 @@ export function dexOlustur({
     const sanalSirali = [...s.sanalMetotlar].sort((a, b) => mIdx(a) - mIdx(b));
 
     const parcalar = [
-      uleb128Yaz(0), // static_fields_size
-      uleb128Yaz(alanSirali.length), // instance_fields_size
+      uleb128Yaz(0),
+      uleb128Yaz(alanSirali.length),
       uleb128Yaz(dogrudanSirali.length),
       uleb128Yaz(sanalSirali.length)
     ];
@@ -728,7 +991,7 @@ export function dexOlustur({
   }
   haritaKayitlari.push({ tip: 0x2000, boyut: sinifTanimlari.length, ofset: classDataIlkOfset });
 
-  // 6. map_list (4 bayt hizalı)
+  // 6. map_list
   veriHizala(4);
   const mapOff = veriImleci;
   haritaKayitlari.push({ tip: 0x1000, boyut: 1, ofset: mapOff });
@@ -749,7 +1012,6 @@ export function dexOlustur({
   const toplamBoyut = veriImleci;
   const dex = Buffer.alloc(toplamBoyut);
 
-  // Sabit tabloları yaz
   stringDataOfsetleri.forEach((off, i) => dex.writeUInt32LE(off, stringIdsOff + i * 4));
   siraliTipler.forEach((t, i) => dex.writeUInt32LE(sIdx(t), typeIdsOff + i * 4));
   siraliProtolar.forEach((p, i) => {
@@ -775,23 +1037,21 @@ export function dexOlustur({
     dex.writeUInt32LE(tIdx(s.tip), o);
     dex.writeUInt32LE(s.erisim, o + 4);
     dex.writeUInt32LE(tIdx(s.ustTip), o + 8);
-    dex.writeUInt32LE(0, o + 12); // interfaces_off
-    dex.writeInt32LE(-1, o + 16); // source_file_idx
+    dex.writeUInt32LE(0, o + 12);
+    dex.writeInt32LE(-1, o + 16);
     dex.writeUInt32LE(sinifAnnDirOfsetleri.get(s.tip), o + 20);
     dex.writeUInt32LE(classDataOfsetleri.get(s.tip), o + 24);
-    dex.writeUInt32LE(0, o + 28); // static_values_off
+    dex.writeUInt32LE(0, o + 28);
   });
 
-  // Veri bölümünü kopyala
   Buffer.concat(veriParcalari).copy(dex, dataOff);
 
-  // DEX Başlığını yaz
   Buffer.from('dex\n035\0', 'ascii').copy(dex, 0);
   dex.writeUInt32LE(toplamBoyut, 32);
   dex.writeUInt32LE(BASLIK_BOYUTU, 36);
   dex.writeUInt32LE(0x12345678, 40);
-  dex.writeUInt32LE(0, 44); // link_size
-  dex.writeUInt32LE(0, 48); // link_off
+  dex.writeUInt32LE(0, 44);
+  dex.writeUInt32LE(0, 48);
   dex.writeUInt32LE(mapOff, 52);
   dex.writeUInt32LE(siraliMetinler.length, 56);
   dex.writeUInt32LE(stringIdsOff, 60);
@@ -808,7 +1068,6 @@ export function dexOlustur({
   dex.writeUInt32LE(toplamBoyut - dataOff, 104);
   dex.writeUInt32LE(dataOff, 108);
 
-  // SHA-1 imzası (bayt 32..son) + Adler-32 sağlama toplamı (bayt 12..son)
   const sha1 = crypto.createHash('sha1').update(dex.subarray(32)).digest();
   sha1.copy(dex, 12);
   const adler = adler32Hesapla(dex.subarray(12));

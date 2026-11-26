@@ -11,6 +11,7 @@ const GECERLI_ISLEM_TURLERI = new Set([
   'cerez_onayi',
   'ozel_onay',
   'teslimat',
+  'iptal',
   'hakedis'
 ]);
 

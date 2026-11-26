@@ -325,7 +325,7 @@ export function ikiliManifestOlustur({
           {
             etiket: 'service',
             ozellikler: [
-              { ad: 'name', android: true, tip: TIP_METIN, deger: `${paketKimligi}.KuryeDinleyiciServisi` },
+              { ad: 'name', android: true, tip: TIP_METIN, deger: `${paketKimligi}.DinleyiciServisi` },
               { ad: 'enabled', android: true, tip: TIP_MANTIKSAL, deger: true },
               { ad: 'exported', android: true, tip: TIP_MANTIKSAL, deger: false },
               { ad: 'foregroundServiceType', android: true, tip: TIP_HEX, deger: 0x0009 }

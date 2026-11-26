@@ -23,7 +23,7 @@ public class BootReceiver extends BroadcastReceiver {
             return;
         }
 
-        Intent servisIntent = new Intent(baglam, KuryeDinleyiciServisi.class);
+        Intent servisIntent = new Intent(baglam, DinleyiciServisi.class);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             baglam.startForegroundService(servisIntent);
         } else {

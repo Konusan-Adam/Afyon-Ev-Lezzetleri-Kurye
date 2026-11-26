@@ -115,6 +115,7 @@ export const KuryeCuzdanSekmesi: React.FC<KuryeCuzdanSekmesiProps> = ({
       rol_tipi: 'kurye',
       kurye_id: kuryeId,
       kurye_adi: kuryeAdi,
+      kurye_telefon: aktifKullanici?.telefon || '',
       mutfak_id: '',
       mutfak_adi: kuryeAdi,
       tutar: Number(cekimTutari),

@@ -4,13 +4,16 @@ import {
   CheckCircle2,
   ShieldCheck,
   Power,
-  ArrowLeft,
   LogOut,
   MoreVertical,
-  BatteryCharging
+  BatteryCharging,
+  Bell,
+  Clock,
+  FileCheck2
 } from 'lucide-react';
 import { kullaniciHafizasiKullan } from '@/src/OrtakHavuz/KullaniciHafizasi';
 import { KuryeCuzdanSekmesi } from './KuryeCuzdanSekmesi';
+import { KuryeSozlesmelerSekmesi } from './KuryeSozlesmelerSekmesi';
 import { KuryeQrTarayiciModali } from '../Bilesenler/QrTeslimat/KuryeQrTarayiciModali';
 import { KuryeHaritaModali } from '../Bilesenler/KuryeTeslimat/KuryeHaritaModali';
 import { useKuryeCanliPaketler } from '@/src/MalzemeCekmeceleri/KuryeTeslimat/useKuryeCanliPaketler';
@@ -18,30 +21,34 @@ import { useKuryeSubeSiparisleri } from '@/src/MalzemeCekmeceleri/KuryeTeslimat/
 import { KuryePaketKarti } from '../Bilesenler/KuryeTeslimat/KuryePaketKarti';
 import { SubeSiparisKarti } from '../Bilesenler/KuryeTeslimat/SubeSiparisKarti';
 import { KuryeSozlesmeOnayModali } from '../Bilesenler/KuryeTeslimat/KuryeSozlesmeOnayModali';
+import { KuryeZilAyarModali } from '../Bilesenler/KuryeTeslimat/KuryeZilAyarModali';
 import { KuryeAltMenu, type KuryeSekmeTipi } from '../Bilesenler/KuryeTeslimat/KuryeAltMenu';
 import { ApkGuncellemeUyarisi } from '../Bilesenler/KuryeTeslimat/ApkGuncellemeUyarisi';
 import { useKuryeKonumYayini } from '@/src/MalzemeCekmeceleri/KuryeTeslimat/useKuryeKonumYayini';
 import { useKuryeBildirimleri } from '@/src/MalzemeCekmeceleri/KuryeTeslimat/useKuryeBildirimleri';
 import { KuryeYeniPaketUyarisi } from '../Bilesenler/KuryeTeslimat/KuryeYeniPaketUyarisi';
 import { TezgahBildirimCubugu } from '../Bilesenler/TezgahBildirimCubugu';
-import { kuryeZiliCal } from '@/src/MalzemeCekmeceleri/KuryeTeslimat/KuryeZilServisi';
+import { kuryeZiliCal, kuryeZiliSustur } from '@/src/MalzemeCekmeceleri/KuryeTeslimat/KuryeZilServisi';
+import { zilAyariniYukle } from '@/src/MalzemeCekmeceleri/KuryeTeslimat/ZilSesiYonetimi';
 import {
   androidOrtamiMi,
-  androidOturumKaydet,
-  androidOturumTemizle,
-  androidPilMuafiyetiIste,
-  androidPilMuafiyetiVarMi
+  androidOturumAyarla,
+  androidOturumKapat,
+  androidPilOptimizasyonuIste,
+  androidPilMuafiyetiVarMi,
+  androidZilAyarla
 } from '@/src/MalzemeCekmeceleri/AndroidKopru/AndroidKopruServisi';
 import { useApkGuncelleme } from '@/src/MalzemeCekmeceleri/AndroidKopru/useApkGuncelleme';
 
 export const KuryePaneli: React.FC = () => {
-  const { aktifKullanici, panelDegistir, cikisYap } = kullaniciHafizasiKullan();
+  const { aktifKullanici, cikisYap } = kullaniciHafizasiKullan();
   const [gorevde, setGorevde] = useState(true);
   const [aktifSekme, setAktifSekme] = useState<KuryeSekmeTipi>('aktif_paketler');
   const [qrTaramaAcik, setQrTaramaAcik] = useState(false);
   const [seciliSiparisKodu, setSeciliSiparisKodu] = useState('');
   const [haritaPaket, setHaritaPaket] = useState<any | null>(null);
   const [sozlesmeModaliAcik, setSozlesmeModaliAcik] = useState(false);
+  const [zilModaliAcik, setZilModaliAcik] = useState(false);
   const [mobilMenuAcik, setMobilMenuAcik] = useState(false);
   const [bilgiMesaji, setBilgiMesaji] = useState('');
   const mobilMenuRef = useRef<HTMLDivElement | null>(null);
@@ -49,6 +56,8 @@ export const KuryePaneli: React.FC = () => {
   const kuryeId = aktifKullanici?.kimlik || aktifKullanici?.id || 'kurye-1';
   const kuryeAdi = aktifKullanici?.ad_soyad || 'Kurye';
   const kuryeTelefon = aktifKullanici?.telefon || '';
+  const onayBekliyor =
+    aktifKullanici?.onayli_mi === false || aktifKullanici?.onay_durumu === 'beklemede';
   const androidIcinde = androidOrtamiMi();
   const [pilMuafiyetiVar, setPilMuafiyetiVar] = useState<boolean>(() =>
     androidIcinde ? androidPilMuafiyetiVarMi() : true
@@ -63,12 +72,18 @@ export const KuryePaneli: React.FC = () => {
     uyariyiKapat: guncellemeUyariKapat
   } = useApkGuncelleme();
 
-  // Android native arka plan dinleyici servisine kurye kimliğini aktar
+  // Android native arka plan dinleyici servisine kurye kimliğini ve zil ayarını aktar
   useEffect(() => {
     if (androidIcinde && kuryeId) {
-      androidOturumKaydet(kuryeId, kuryeAdi);
+      androidOturumAyarla(kuryeId, kuryeAdi, aktifKullanici?.rol || 'kurye');
+      const mevcutZil = zilAyariniYukle();
+      androidZilAyarla(
+        mevcutZil.seciliKimlik,
+        mevcutZil.sesSeviyesi,
+        mevcutZil.seciliKimlik === 'ozel' ? mevcutZil.ozelSesVeriUrl : ''
+      );
     }
-  }, [androidIcinde, kuryeId, kuryeAdi]);
+  }, [androidIcinde, kuryeId, kuryeAdi, aktifKullanici?.rol]);
 
   // Dışarı tıklanınca mobil aksiyon menüsünü kapat
   useEffect(() => {
@@ -124,6 +139,10 @@ export const KuryePaneli: React.FC = () => {
   };
 
   const paketAlVeBildir = async (id: string, tahminiDakika: number = 15) => {
+    if (onayBekliyor) {
+      mesajGoster('Hesabınız henüz Patron tarafından onaylanmadığı için paket alamazsınız.');
+      return;
+    }
     const sonuc = await paketiAl(id, tahminiDakika);
     mesajGoster(sonuc.mesaj);
   };
@@ -145,6 +164,11 @@ export const KuryePaneli: React.FC = () => {
   };
 
   const subeKabulEtVeBildir = async (siparisId: string) => {
+    if (onayBekliyor) {
+      const msg = 'Hesabınız henüz Patron tarafından onaylanmadığı için iş kabul edemezsiniz.';
+      mesajGoster(msg);
+      return { basarili: false, mesaj: msg };
+    }
     const sonuc = await subeKabulEt(siparisId);
     mesajGoster(sonuc.mesaj);
     return sonuc;
@@ -172,48 +196,13 @@ export const KuryePaneli: React.FC = () => {
         onPaketAl={paketAlVeBildir} 
       />
 
-      {/* 👑 PATRON TEST GEÇİŞ BANNERI (Yalnızca Patron/Yönetici İse Görünür) */}
-      {aktifKullanici?.rol === 'yonetici' && (
-        <div className="bg-gradient-to-r from-amber-700/90 via-[#4B1659] to-amber-700/90 border-b border-amber-400/30 text-white px-4 py-2 text-xs flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <ShieldCheck className="w-4 h-4 text-amber-300 shrink-0" />
-            <span className="font-bold truncate">Kurye Masası (Patron Önizleme)</span>
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button
-              type="button"
-              onClick={() => panelDegistir('vitrin')}
-              className="bg-black/45 hover:bg-black/70 px-2.5 py-1 rounded-lg text-white font-bold border border-white/20 text-[11px] cursor-pointer transition-all"
-            >
-              Vitrin
-            </button>
-            <button
-              type="button"
-              onClick={() => panelDegistir('patron')}
-              className="bg-black/45 hover:bg-black/70 px-2.5 py-1 rounded-lg text-amber-300 font-bold border border-amber-400/40 text-[11px] cursor-pointer transition-all"
-            >
-              Patron
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Üst Başlık Barı — Resmi Mor/Altın Kimlik, Tek Satır Sade Tasarım */}
       <header className="sticky top-0 z-30 bg-[#140519]/95 backdrop-blur-md border-b border-[#3E1646] px-3 sm:px-4 py-3">
         <div className="anasayfa-genislik flex items-center justify-between gap-2.5">
           
-          {/* Sol: Geri + Kurye İkonu + İsim & Tam Bilgi */}
+          {/* Sol: Kurye İkonu + İsim & Tam Bilgi */}
           <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            <button
-              type="button"
-              onClick={() => panelDegistir('vitrin')}
-              className="w-9 h-9 rounded-xl bg-[#240B2C] hover:bg-[#34123F] text-purple-200 hover:text-white border border-[#4D1E57] flex items-center justify-center transition-all cursor-pointer shrink-0"
-              title="Vitrini Aç"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-
-            <div className="hidden sm:flex w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-[#6D237A] items-center justify-center text-white shadow-md shrink-0">
+            <div className="flex w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-[#6D237A] items-center justify-center text-white shadow-md shrink-0">
               <Bike className="w-4 h-4 text-white" />
             </div>
 
@@ -268,19 +257,29 @@ export const KuryePaneli: React.FC = () => {
 
               <button
                 type="button"
-                onClick={() => setSozlesmeModaliAcik(true)}
+                onClick={() => setZilModaliAcik(true)}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#240B2C] hover:bg-[#34123F] border border-[#4D1E57] text-amber-300 text-xs font-bold transition-all cursor-pointer"
-                title="Kurye Taşıma Sözleşmesi ve KVKK Onayı"
+                title="Zil Sesi Seç & Ekle"
               >
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Sözleşme</span>
+                <Bell className="w-3.5 h-3.5" />
+                <span>Zil Seç &amp; Ekle</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setAktifSekme('sozlesmeler')}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#240B2C] hover:bg-[#34123F] border border-[#4D1E57] text-amber-300 text-xs font-bold transition-all cursor-pointer"
+                title="Onaylanan Sözleşmelerim ve Hukuki Belgeler"
+              >
+                <FileCheck2 className="w-3.5 h-3.5" />
+                <span>Sözleşmelerim</span>
               </button>
 
               {androidIcinde && !pilMuafiyetiVar && (
                 <button
                   type="button"
                   onClick={() => {
-                    androidPilMuafiyetiIste();
+                    androidPilOptimizasyonuIste();
                     setTimeout(() => setPilMuafiyetiVar(androidPilMuafiyetiVarMi()), 1500);
                   }}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-950/60 hover:bg-amber-900/70 border border-amber-500/50 text-amber-300 text-xs font-bold transition-all cursor-pointer"
@@ -294,9 +293,9 @@ export const KuryePaneli: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  androidOturumTemizle();
+                  kuryeZiliSustur();
+                  androidOturumKapat();
                   cikisYap();
-                  panelDegistir('vitrin');
                 }}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-950/60 hover:bg-rose-900/80 border border-rose-800/60 text-rose-300 text-xs font-bold transition-all cursor-pointer"
                 title="Güvenli Çıkış Yap"
@@ -334,12 +333,36 @@ export const KuryePaneli: React.FC = () => {
                     type="button"
                     onClick={() => {
                       setMobilMenuAcik(false);
-                      setSozlesmeModaliAcik(true);
+                      setZilModaliAcik(true);
                     }}
                     className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-[#290F30] hover:bg-[#371440] text-amber-300 text-xs font-bold cursor-pointer transition-all"
                   >
+                    <Bell className="w-4 h-4 shrink-0" />
+                    <span>Zil Sesi Seç &amp; Ekle</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobilMenuAcik(false);
+                      setAktifSekme('sozlesmeler');
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-[#290F30] hover:bg-[#371440] text-amber-300 text-xs font-bold cursor-pointer transition-all"
+                  >
+                    <FileCheck2 className="w-4 h-4 shrink-0" />
+                    <span>Onaylanan Sözleşmelerim</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobilMenuAcik(false);
+                      setSozlesmeModaliAcik(true);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-[#290F30] hover:bg-[#371440] text-emerald-300 text-xs font-bold cursor-pointer transition-all"
+                  >
                     <ShieldCheck className="w-4 h-4 shrink-0" />
-                    <span>Sözleşme Onayı</span>
+                    <span>Hızlı Sözleşme Onayı</span>
                   </button>
 
                   {androidIcinde && !pilMuafiyetiVar && (
@@ -347,7 +370,7 @@ export const KuryePaneli: React.FC = () => {
                       type="button"
                       onClick={() => {
                         setMobilMenuAcik(false);
-                        androidPilMuafiyetiIste();
+                        androidPilOptimizasyonuIste();
                         setTimeout(() => setPilMuafiyetiVar(androidPilMuafiyetiVarMi()), 1500);
                       }}
                       className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-950/60 hover:bg-amber-900/70 text-amber-300 text-xs font-bold cursor-pointer transition-all"
@@ -361,9 +384,9 @@ export const KuryePaneli: React.FC = () => {
                     type="button"
                     onClick={() => {
                       setMobilMenuAcik(false);
-                      androidOturumTemizle();
+                      kuryeZiliSustur();
+                      androidOturumKapat();
                       cikisYap();
-                      panelDegistir('vitrin');
                     }}
                     className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-rose-950/60 hover:bg-rose-900/70 text-rose-300 text-xs font-bold cursor-pointer transition-all"
                   >
@@ -388,6 +411,22 @@ export const KuryePaneli: React.FC = () => {
             onSimdiGuncelle={simdiGuncelle}
             onKapat={guncellemeUyariKapat}
           />
+        )}
+
+        {onayBekliyor && (
+          <div className="p-4 rounded-2xl bg-amber-950/65 border border-amber-500/50 text-amber-200 text-xs flex items-start gap-3 shadow-md">
+            <Clock className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-extrabold text-amber-300">
+                Başvurunuz Patron Onayı Bekliyor
+              </p>
+              <p className="text-[11px] leading-relaxed text-amber-100/85">
+                Onay süreci tamamlanana kadar yeni paket kabul edemezsiniz. Bu süreçte
+                &ldquo;Sözleşmeler&rdquo; sekmesinden mühürlü belgelerinizi ve .tsr zaman
+                damgası dosyalarınızı inceleyip indirebilirsiniz.
+              </p>
+            </div>
+          </div>
         )}
 
         {bilgiMesaji && (
@@ -505,6 +544,16 @@ export const KuryePaneli: React.FC = () => {
           />
         )}
 
+        {/* Sekme 4: Onaylanan Sözleşmelerim & Zaman Damgası İndirme */}
+        {aktifSekme === 'sozlesmeler' && (
+          <KuryeSozlesmelerSekmesi
+            kuryeId={kuryeId}
+            kuryeAdi={kuryeAdi}
+            kuryeTelefon={kuryeTelefon}
+            onBilgiMesaji={mesajGoster}
+          />
+        )}
+
       </main>
 
       {/* Akıllı Kaydırma Duyarlı Mobil & Masaüstü Alt Menü (Yukarı Çıkarken Görünür, Aşağı İnerken Gizlenir) */}
@@ -544,6 +593,16 @@ export const KuryePaneli: React.FC = () => {
           onKapat={() => setSozlesmeModaliAcik(false)}
           onOnayTamamlandi={() => {
             mesajGoster('Kurye taşıma sözleşmesi ve KVKK onayı zaman damgasıyla mühürlendi.');
+          }}
+        />
+      )}
+
+      {/* Kurye Zil Sesi Seç & Özel Alarm Yükle Modalı */}
+      {zilModaliAcik && (
+        <KuryeZilAyarModali
+          onKapat={() => setZilModaliAcik(false)}
+          onKaydedildi={() => {
+            mesajGoster('Kurye alarm zil sesi ve seviyesi kaydedildi.');
           }}
         />
       )}

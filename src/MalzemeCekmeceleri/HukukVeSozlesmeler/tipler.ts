@@ -10,6 +10,7 @@ export type SozlesmeTuru =
   | 'cerez_politikasi'
   | 'iptal_iade_kosullari'
   | 'kurye_kayit_sozlesmesi'
+  | 'kurye_ehliyet_arac_beyani'
   | 'kurye_paket_teslim_alma'
   | 'teslimat_pin_qr_onayi'
   | 'kurye_hakedis_odeme_talebi'
@@ -23,6 +24,7 @@ export type HukukiIslemTuru =
   | 'cerez_onayi'
   | 'ozel_onay'
   | 'teslimat'
+  | 'iptal'
   | 'hakedis';
 
 export type DamgaDurumu = 'rfc3161_onayli' | 'sunucu_muhurlu' | 'yerel_ozet';

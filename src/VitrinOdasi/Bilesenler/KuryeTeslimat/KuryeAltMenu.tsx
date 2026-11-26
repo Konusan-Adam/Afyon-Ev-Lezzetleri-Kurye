@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Bike, CheckCircle2, Wallet } from 'lucide-react';
+import { Bike, CheckCircle2, FileCheck2, Wallet } from 'lucide-react';
 
-export type KuryeSekmeTipi = 'aktif_paketler' | 'gecmis' | 'kazanc';
+export type KuryeSekmeTipi = 'aktif_paketler' | 'gecmis' | 'kazanc' | 'sozlesmeler';
 
 export interface KuryeAltMenuProps {
   aktifSekme: KuryeSekmeTipi;
@@ -85,19 +85,24 @@ export const KuryeAltMenu: React.FC<KuryeAltMenuProps> = ({
       id: 'kazanc',
       etiket: 'Cüzdanım',
       ikon: <Wallet className="w-4 h-4 shrink-0" />
+    },
+    {
+      id: 'sozlesmeler',
+      etiket: 'Sözleşmeler',
+      ikon: <FileCheck2 className="w-4 h-4 shrink-0" />
     }
   ];
 
   return (
     <nav
       aria-label="Kurye Alt Menü"
-      className={`fixed bottom-3 left-3 right-3 sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-lg z-40 transition-all duration-300 ease-out ${
+      className={`fixed bottom-3 left-3 right-3 sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-xl z-40 transition-all duration-300 ease-out ${
         gorunur
           ? 'translate-y-0 opacity-100'
           : 'translate-y-[140%] opacity-0 pointer-events-none'
       }`}
     >
-      <div className="bg-[#180A1F]/95 backdrop-blur-xl border border-[#4B1D55] rounded-2xl p-1.5 shadow-2xl shadow-black/70 grid grid-cols-3 gap-1.5">
+      <div className="bg-[#180A1F]/95 backdrop-blur-xl border border-[#4B1D55] rounded-2xl p-1.5 shadow-2xl shadow-black/70 grid grid-cols-4 gap-1">
         {ogeler.map((oge) => {
           const secili = aktifSekme === oge.id;
           return (

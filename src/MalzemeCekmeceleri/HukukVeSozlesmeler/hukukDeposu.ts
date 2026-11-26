@@ -60,6 +60,39 @@ MADDE 3 - SEFER BAŞINA HAKEDİŞ VE ÖDEMELER
 MADDE 4 - GÜVENLİK VE SORUMLULUK
 Kuryenin kendi aracının muayene, sigorta ve ehliyet geçerliliğinden bizzat kendisi sorumludur.`
   },
+  kurye_ehliyet_arac_beyani: {
+    tur: 'kurye_ehliyet_arac_beyani',
+    baslik: 'Araç Muayene, Trafik Sigortası, Ehliyet ve İş Güvenliği Taahhüt Beyanı',
+    kisaBaslik: 'Ehliyet & Araç Beyanı',
+    versiyon: '1.0.0',
+    guncellenmeTarihi: '2026-11-26',
+    zorunluMu: true,
+    konum: 'kurye_basvuru',
+    silinebilirMi: false,
+    icerik: `MADDE 1 - SÜRÜCÜ BELGESİ VE YASAL YETERLİLİK
+Kurye, görev alacağı araç sınıfına uygun, yürürlükte ve geçerli sürücü belgesine (ehliyet) sahip olduğunu, adli sicil ve trafik kuralları bakımından paket taşımacılığı yapmasına engel bir durumu bulunmadığını beyan ve taahhüt eder.
+
+MADDE 2 - ARAÇ MUAYENE VE ZORUNLU TRAFİK SİGORTASI
+Motorlu taşıt ile dağıtım yapacak kurye; aracının periyodik muayenesinin, zorunlu mali sorumluluk (trafik) sigortasının ve plaka tescilinin eksiksiz ve güncel olduğunu kabul eder. Süresi dolan belgelerden doğacak tüm idari ve hukuki sorumluluk kuryeye aittir.
+
+MADDE 3 - İŞ SAĞLIĞI, KASK VE EKİPMAN GÜVENLİĞİ
+Kurye, sürüş esnasında kask, koruyucu ekipman ve gıda taşımaya uygun termal çanta kullanmayı; hız sınırlarına, trafik işaretlerine ve yaya önceliğine uymayı taahhüt eder.`
+  },
+  iptal_iade_kosullari: {
+    tur: 'iptal_iade_kosullari',
+    baslik: 'Kurye Kaynaklı Sipariş İptal ve Teslim Edilemedi Beyan Tutanağı',
+    kisaBaslik: 'İptal / Teslim Edilemedi Beyanı',
+    versiyon: '1.0.0',
+    guncellenmeTarihi: '2026-11-26',
+    zorunluMu: true,
+    konum: 'genel',
+    silinebilirMi: false,
+    icerik: `MADDE 1 - İPTAL VE TESLİM EDİLEMEDİ BEYANI
+Kurye, üzerine aldığı siparişi müşteriye teslim edememesi halinde geçerli gerekçeyi (müşteriye ulaşılamaması, teslimat bölgesi dışı, araç arızası veya müşteri talebi) gerçeğe uygun şekilde bildirmekle yükümlüdür.
+
+MADDE 2 - PAKET İADESİ VE ZAMAN DAMGASI
+İptal beyanı sunucu saati, gerçek IP adresi ve kriptografik SHA-256 özeti ile zaman damgalanır. Teslim alınmış paketin mutfağa/şubeye eksiksiz iadesinden kurye sorumludur.`
+  },
   kullanici_sozlesmesi: {
     tur: 'kullanici_sozlesmesi',
     baslik: 'Kullanıcı ve Üyelik Sözleşmesi',
@@ -80,19 +113,19 @@ Platform üzerinde asılsız sipariş vermek, kuryeyi kasıtlı olarak bekletmek
   },
   kvkk_aydinlatma: {
     tur: 'kvkk_aydinlatma',
-    baslik: 'KVKK Aydınlatma ve Açık Rıza Metni',
+    baslik: 'KVKK Aydınlatma ve Açık Rıza Metni (Konum & İletişim Dahil)',
     kisaBaslik: 'KVKK Aydınlatma Metni',
-    versiyon: '1.0.0',
-    guncellenmeTarihi: '2026-10-19',
+    versiyon: '1.1.0',
+    guncellenmeTarihi: '2026-11-26',
     zorunluMu: true,
     konum: 'genel',
     silinebilirMi: false,
     icerik: `6698 Sayılı Kişisel Verilerin Korunması Kanunu (KVKK) uyarınca:
 Veri Sorumlusu sıfatıyla Afyon Ev Lezzetleri olarak;
-1. İŞLENEN KİŞİSEL VERİLER: Ad, Soyad, Cep Telefon Numarası, Teslimat Adresi, Sipariş Geçmişi, Cihaz IP ve Tarayıcı Bilgileri.
-2. VERİ İŞLEME AMAÇLARI: Siparişlerin doğru adrese ulaştırılması, kurye koordinasyonu, yasal faturalandırma ve müşteri memnuniyeti analizi.
-3. VERİ AKTARIMI: Verileriniz yalnızca siparişi hazırlayan Mutfak ile siparişi getiren Kurye'ye teslimatın ifası amacıyla sınırlı olarak aktarılır. Üçüncü şahıslara ticari amaçla satılamaz.
-4. HAKLARINIZ: KVKK Madde 11 uyarınca dilediğiniz zaman verilerinizin silinmesini veya düzeltilmesini talep edebilirsiniz.`
+1. İŞLENEN KİŞİSEL VERİLER: Ad, Soyad, Cep Telefon Numarası, İlçe/Bölge, Araç ve Plaka Bilgisi, Görevde Olunan Süre Boyunca Canlı GPS Konum Verisi, Teslimat Adresi, Sipariş Geçmişi, Cihaz IP ve Tarayıcı Bilgileri.
+2. VERİ İŞLEME AMAÇLARI: Siparişlerin doğru adrese ulaştırılması, görev süresince canlı GPS koordinatları üzerinden kurye-müşteri-şube koordinasyonunun sağlanması, telefon üzerinden teslimat iletişimi, yasal faturalandırma ve hakediş mutabakatı.
+3. VERİ AKTARIMI: İletişim ve canlı konum verileriniz yalnızca aktif teslimatın ifası süresince ilgili Mutfak/Şube ve Sipariş Sahibi Müşteri ile sınırlı olarak paylaşılır. Üçüncü şahıslara ticari amaçla satılamaz.
+4. HAKLARINIZ: KVKK Madde 11 uyarınca dilediğiniz zaman verilerinizin güncellenmesini veya silinmesini talep edebilirsiniz.`
   },
   mesafeli_satis: {
     tur: 'mesafeli_satis',
