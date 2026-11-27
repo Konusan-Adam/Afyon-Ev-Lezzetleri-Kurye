@@ -16,7 +16,14 @@ export type SozlesmeTuru =
   | 'kurye_hakedis_odeme_talebi'
   | string;
 
-export type SozlesmeKonumu = 'kayit' | 'siparis' | 'asci_basvuru' | 'kurye_basvuru' | 'genel';
+export type SozlesmeKonumu =
+  | 'asci_basvuru'
+  | 'kurye_basvuru'
+  | 'kurye'
+  | 'kayit'
+  | 'siparis'
+  | 'genel'
+  | 'tumu';
 
 export type HukukiIslemTuru =
   | 'kayit'
@@ -37,7 +44,9 @@ export interface HukukiSozlesme {
   guncellenmeTarihi: string;
   icerik: string;
   zorunluMu: boolean;
+  aktifMi?: boolean;
   konum?: SozlesmeKonumu;
+  hedefRoller?: string[];
   silinebilirMi?: boolean;
 }
 

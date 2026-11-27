@@ -3,9 +3,9 @@
   "applicationId": "com.afyonevlezzetleri.kurye",
   "apkFileName": "afyon-kurye.apk",
   "version": "1.0.0",
-  "versionCode": 103,
-  "builtAt": "2026-11-26T18:38:52.956Z",
-  "builtTimestamp": 1795718332956,
+  "versionCode": 104,
+  "builtAt": "2026-11-27T18:48:02.086Z",
+  "builtTimestamp": 1795805282086,
   "firebaseProjectId": "afyon-ev-lezzetleri-demo",
   "firebaseApiKey": "AIzaSyDummyKeyForDemoMode1234567890",
   "firestoreDatabaseId": "(default)"

@@ -10,14 +10,18 @@ import {
   ShieldCheck,
   X
 } from 'lucide-react';
-import { hukukiSozlesmeleriGetir } from '@/src/MalzemeCekmeceleri/HukukVeSozlesmeler/hukukDeposu';
+import { useCanliSozlesmeler } from '@/src/MalzemeCekmeceleri/HukukVeSozlesmeler/useCanliSozlesmeler';
 import {
   kuryeKayitSozlesmeleriniDamgala,
   kuryeOnayLoglariniGetir,
   muhurluHtmlBelgeIndir,
   tsrDosyasiIndir
 } from '@/src/MalzemeCekmeceleri/HukukVeSozlesmeler/hukukiDelilServisi';
-import type { HukukiIslemTuru, HukukiOnayLogu } from '@/src/MalzemeCekmeceleri/HukukVeSozlesmeler/tipler';
+import type {
+  HukukiIslemTuru,
+  HukukiOnayLogu,
+  HukukiSozlesme
+} from '@/src/MalzemeCekmeceleri/HukukVeSozlesmeler/tipler';
 
 export interface KuryeSozlesmelerSekmesiProps {
   kuryeId: string;
@@ -25,12 +29,6 @@ export interface KuryeSozlesmelerSekmesiProps {
   kuryeTelefon?: string;
   onBilgiMesaji?: (mesaj: string) => void;
 }
-
-const ZORUNLU_KURYE_SOZLESMELERI = [
-  'kurye_kayit_sozlesmesi',
-  'kvkk_aydinlatma',
-  'kurye_ehliyet_arac_beyani'
-] as const;
 
 function islemTuruEtiketi(tur: HukukiIslemTuru | string): string {
   switch (tur) {
@@ -74,7 +72,13 @@ export const KuryeSozlesmelerSekmesi: React.FC<KuryeSozlesmelerSekmesiProps> = (
   kuryeTelefon = '',
   onBilgiMesaji
 }) => {
-  const sozlesmeler = useMemo(() => hukukiSozlesmeleriGetir(), []);
+  const {
+    sozlesmeler: dinamikSozlesmeler,
+    sozlesmeHaritasi,
+    yukleniyor: sozlesmelerYukleniyor,
+    hata: sozlesmeHatasi
+  } = useCanliSozlesmeler('kurye_basvuru');
+
   const [loglar, setLoglar] = useState<HukukiOnayLogu[]>([]);
   const [yukleniyor, setYukleniyor] = useState(true);
   const [damgalananTur, setDamgalananTur] = useState<string | null>(null);
@@ -105,19 +109,22 @@ export const KuryeSozlesmelerSekmesi: React.FC<KuryeSozlesmelerSekmesiProps> = (
   }, [loglar]);
 
   const eksikSozlesmeler = useMemo(
-    () => ZORUNLU_KURYE_SOZLESMELERI.filter((tur) => !onayHaritasi.has(tur)),
-    [onayHaritasi]
+    () =>
+      dinamikSozlesmeler.filter(
+        (s) => s.zorunluMu !== false && !onayHaritasi.has(s.tur)
+      ),
+    [dinamikSozlesmeler, onayHaritasi]
   );
 
-  const tekSozlesmeDamgala = async (sozlesmeTurleri: string[]) => {
-    if (sozlesmeTurleri.length === 0) return;
-    setDamgalananTur(sozlesmeTurleri.length === 1 ? sozlesmeTurleri[0] : '__hepsi__');
+  const sozlesmeleriDamgala = async (hedefler: HukukiSozlesme[]) => {
+    if (hedefler.length === 0) return;
+    setDamgalananTur(hedefler.length === 1 ? hedefler[0].tur : '__hepsi__');
     try {
       await kuryeKayitSozlesmeleriniDamgala({
         kullaniciKimlik: kuryeId,
         kullaniciTelefon: kuryeTelefon,
         kullaniciAdSoyad: kuryeAdi,
-        sozlesmeTurleri,
+        sozlesmeler: hedefler,
         ekDetay: {
           onayKanali: 'kurye_sozlesmelerim_sekmesi'
         }
@@ -131,7 +138,7 @@ export const KuryeSozlesmelerSekmesi: React.FC<KuryeSozlesmelerSekmesiProps> = (
     }
   };
 
-  const okunanSozlesme = okunanSozlesmeTuru ? sozlesmeler[okunanSozlesmeTuru] : null;
+  const okunanSozlesme = okunanSozlesmeTuru ? sozlesmeHaritasi[okunanSozlesmeTuru] : null;
 
   return (
     <div className="space-y-5 font-sans">
@@ -147,7 +154,7 @@ export const KuryeSozlesmelerSekmesi: React.FC<KuryeSozlesmelerSekmesiProps> = (
                 Onaylanan Sözleşmelerim &amp; Hukuki Deliller
               </h2>
               <p className="text-[11px] text-purple-200/75">
-                Tüm kurye sözleşmelerinizi okuyabilir, mühürlü HTML belgenizi ve .tsr dosyanızı indirebilirsiniz.
+                Firestore üzerinden canlı yönetilen aktif sözleşmelerinizi okuyup mühürlü HTML ve .tsr belgelerinizi indirebilirsiniz.
               </p>
             </div>
           </div>
@@ -169,13 +176,13 @@ export const KuryeSozlesmelerSekmesi: React.FC<KuryeSozlesmelerSekmesiProps> = (
               <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
               <span>
                 Hesabınızda henüz zaman damgalanmamış{' '}
-                <strong>{eksikSozlesmeler.length}</strong> zorunlu kurye sözleşmesi bulunuyor.
+                <strong>{eksikSozlesmeler.length}</strong> aktif zorunlu kurye sözleşmesi bulunuyor.
               </span>
             </div>
             <button
               type="button"
               disabled={damgalananTur !== null}
-              onClick={() => tekSozlesmeDamgala([...eksikSozlesmeler])}
+              onClick={() => sozlesmeleriDamgala(eksikSozlesmeler)}
               className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-[#180A1F] font-black text-xs shrink-0 cursor-pointer disabled:opacity-50"
             >
               {damgalananTur === '__hepsi__' ? 'Damgalanıyor...' : 'Tüm Eksikleri Tek Tuşla Damgala'}
@@ -184,108 +191,122 @@ export const KuryeSozlesmelerSekmesi: React.FC<KuryeSozlesmelerSekmesiProps> = (
         )}
       </div>
 
-      {/* 3 Zorunlu Kurye Sözleşmesi Kartları */}
+      {/* Canlı Firestore Kurye Sözleşmeleri Listesi */}
       <div className="space-y-3">
         <h3 className="text-xs font-extrabold uppercase tracking-wider text-purple-300/80 px-1">
-          Zorunlu Kurye Sözleşmeleri
+          Aktif Kurye Sözleşmeleri ({dinamikSozlesmeler.length})
         </h3>
 
-        {ZORUNLU_KURYE_SOZLESMELERI.map((tur) => {
-          const sozlesme = sozlesmeler[tur];
-          const kayit = onayHaritasi.get(tur);
-          const rozet = kayit ? damgaDurumuRozeti(kayit.damgaDurumu) : null;
+        {sozlesmelerYukleniyor ? (
+          <div className="p-6 rounded-2xl bg-[#1D0A20] border border-[#3E1646] text-center text-xs text-purple-200/75">
+            Aktif sözleşmeler Firestore üzerinden canlı yükleniyor...
+          </div>
+        ) : dinamikSozlesmeler.length === 0 ? (
+          <div className="p-6 rounded-2xl bg-[#1D0A20] border border-[#3E1646] text-center text-xs text-purple-200/75">
+            {sozlesmeHatasi || 'Şu anda kurye paneli için aktif sözleşme tanımlı değil.'}
+          </div>
+        ) : (
+          dinamikSozlesmeler.map((sozlesme) => {
+            const kayit = onayHaritasi.get(sozlesme.tur);
+            const rozet = kayit ? damgaDurumuRozeti(kayit.damgaDurumu) : null;
 
-          return (
-            <div
-              key={tur}
-              className="p-4 rounded-2xl bg-[#1D0A20] border border-[#3E1646] space-y-3 shadow-md"
-            >
-              <div className="flex items-start justify-between gap-2 flex-wrap">
-                <div className="space-y-0.5 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-bold text-sm text-white">
-                      {sozlesme?.baslik || tur}
-                    </span>
-                    <span className="text-[10px] font-mono text-purple-300/75">
-                      v{sozlesme?.versiyon || '1.0.0'}
-                    </span>
+            return (
+              <div
+                key={sozlesme.tur}
+                className="p-4 rounded-2xl bg-[#1D0A20] border border-[#3E1646] space-y-3 shadow-md"
+              >
+                <div className="flex items-start justify-between gap-2 flex-wrap">
+                  <div className="space-y-0.5 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-sm text-white">{sozlesme.baslik}</span>
+                      <span className="text-[10px] font-mono text-purple-300/75">
+                        v{sozlesme.versiyon}
+                      </span>
+                      {sozlesme.zorunluMu === false && (
+                        <span className="text-[10px] text-purple-300/70">(İsteğe Bağlı)</span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-purple-200/70">
+                      {kayit
+                        ? `Onay Zamanı: ${kayit.sunucuUtc || kayit.tarihSaat} • IP: ${kayit.ipAdresi}`
+                        : 'Bu sözleşme için henüz zaman damgalı onay kaydı bulunamadı.'}
+                    </p>
                   </div>
-                  <p className="text-[11px] text-purple-200/70">
-                    {kayit
-                      ? `Onay Zamanı: ${kayit.sunucuUtc || kayit.tarihSaat} • IP: ${kayit.ipAdresi}`
-                      : 'Bu sözleşme için henüz zaman damgalı onay kaydı bulunamadı.'}
-                  </p>
+
+                  {rozet ? (
+                    <span
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${rozet.sinif}`}
+                    >
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>{rozet.etiket}</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border bg-rose-500/15 text-rose-300 border-rose-500/40">
+                      <ShieldAlert className="w-3 h-3" />
+                      <span>Eksik / Onaysız</span>
+                    </span>
+                  )}
                 </div>
 
-                {rozet ? (
-                  <span
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${rozet.sinif}`}
-                  >
-                    <CheckCircle2 className="w-3 h-3" />
-                    <span>{rozet.etiket}</span>
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border bg-rose-500/15 text-rose-300 border-rose-500/40">
-                    <ShieldAlert className="w-3 h-3" />
-                    <span>Eksik / Onaysız</span>
-                  </span>
-                )}
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setOkunanSozlesmeTuru(tur)}
-                  className="px-3 py-1.5 rounded-xl bg-[#270F30] hover:bg-[#351541] border border-[#4D1E57] text-purple-100 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-                >
-                  <FileText className="w-3.5 h-3.5 text-amber-300" />
-                  <span>Sözleşmeyi Oku</span>
-                </button>
-
-                {kayit ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        muhurluHtmlBelgeIndir(kayit, sozlesme?.baslik, sozlesme?.icerik)
-                      }
-                      className="px-3 py-1.5 rounded-xl bg-emerald-950/70 hover:bg-emerald-900/80 border border-emerald-500/40 text-emerald-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>Mühürlü Belge (.html)</span>
-                    </button>
-
-                    {kayit.tsaTokenBase64 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const ok = tsrDosyasiIndir(kayit);
-                          if (ok && onBilgiMesaji) {
-                            onBilgiMesaji('RFC 3161 .tsr zaman damgası dosyası indirildi.');
-                          }
-                        }}
-                        className="px-3 py-1.5 rounded-xl bg-amber-950/60 hover:bg-amber-900/70 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <FileCode2 className="w-3.5 h-3.5" />
-                        <span>.tsr Dosyası İndir</span>
-                      </button>
-                    )}
-                  </>
-                ) : (
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
-                    disabled={damgalananTur !== null}
-                    onClick={() => tekSozlesmeDamgala([tur])}
-                    className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-[#180A1F] text-xs font-black flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    onClick={() => setOkunanSozlesmeTuru(sozlesme.tur)}
+                    className="px-3 py-1.5 rounded-xl bg-[#270F30] hover:bg-[#351541] border border-[#4D1E57] text-purple-100 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                   >
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    <span>{damgalananTur === tur ? 'Damgalanıyor...' : 'Tek Tuşla Onayla & Damgala'}</span>
+                    <FileText className="w-3.5 h-3.5 text-amber-300" />
+                    <span>Sözleşmeyi Oku</span>
                   </button>
-                )}
+
+                  {kayit ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          muhurluHtmlBelgeIndir(kayit, sozlesme.baslik, sozlesme.icerik)
+                        }
+                        className="px-3 py-1.5 rounded-xl bg-emerald-950/70 hover:bg-emerald-900/80 border border-emerald-500/40 text-emerald-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Mühürlü Belge (.html)</span>
+                      </button>
+
+                      {kayit.tsaTokenBase64 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const ok = tsrDosyasiIndir(kayit);
+                            if (ok && onBilgiMesaji) {
+                              onBilgiMesaji('RFC 3161 .tsr zaman damgası dosyası indirildi.');
+                            }
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-amber-950/60 hover:bg-amber-900/70 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <FileCode2 className="w-3.5 h-3.5" />
+                          <span>.tsr Dosyası İndir</span>
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={damgalananTur !== null}
+                      onClick={() => sozlesmeleriDamgala([sozlesme])}
+                      className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-[#180A1F] text-xs font-black flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>
+                        {damgalananTur === sozlesme.tur
+                          ? 'Damgalanıyor...'
+                          : 'Tek Tuşla Onayla & Damgala'}
+                      </span>
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
       </div>
 
       {/* Tüm İşlem & Teslimat Zaman Damgaları */}
@@ -308,7 +329,7 @@ export const KuryeSozlesmelerSekmesi: React.FC<KuryeSozlesmelerSekmesiProps> = (
           <div className="space-y-2.5">
             {loglar.map((log) => {
               const rozet = damgaDurumuRozeti(log.damgaDurumu);
-              const eslesenSozlesme = sozlesmeler[log.sozlesmeTuru];
+              const eslesenSozlesme = sozlesmeHaritasi[log.sozlesmeTuru];
               return (
                 <div
                   key={log.kimlik}

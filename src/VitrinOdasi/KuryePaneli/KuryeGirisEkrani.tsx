@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  ArrowLeft,
   Bike,
   CheckCircle2,
   Eye,
@@ -25,6 +26,7 @@ import {
   kuryeSifreSifirla
 } from '@/src/MalzemeCekmeceleri/KuryeTeslimat/kuryeKimlikServisi';
 import { hukukiSozlesmeleriGetir } from '@/src/MalzemeCekmeceleri/HukukVeSozlesmeler/hukukDeposu';
+import { useCanliSozlesmeler } from '@/src/MalzemeCekmeceleri/HukukVeSozlesmeler/useCanliSozlesmeler';
 
 type GirisSekmesi = 'giris' | 'kayit' | 'sifre_sifirla';
 
@@ -41,7 +43,12 @@ const BELGE_BEYAN_SECENEKLERI = [
 
 export const KuryeGirisEkrani: React.FC = () => {
   const { kuryeOlarakGirisYap, kuryeOlarakKayitOl, yukleniyor } = kullaniciHafizasiKullan();
-  const sozlesmeler = hukukiSozlesmeleriGetir();
+  const {
+    sozlesmeler: dinamikSozlesmeler,
+    sozlesmeHaritasi,
+    yukleniyor: sozlesmelerYukleniyor,
+    hata: sozlesmeHatasi
+  } = useCanliSozlesmeler('kurye_basvuru');
 
   const [aktifSekme, setAktifSekme] = useState<GirisSekmesi>('giris');
   const [hataMesaji, setHataMesaji] = useState('');
@@ -66,13 +73,10 @@ export const KuryeGirisEkrani: React.FC = () => {
   const [ehliyetDurumu, setEhliyetDurumu] = useState<string>(EHLIYET_SECENEKLERI[0]);
   const [belgeBeyani, setBelgeBeyani] = useState<string>(BELGE_BEYAN_SECENEKLERI[0]);
 
-  // 3 zorunlu hukuki onay
-  const [tasimaOnayli, setTasimaOnayli] = useState(false);
-  const [kvkkOnayli, setKvkkOnayli] = useState(false);
-  const [ehliyetBeyaniOnayli, setEhliyetBeyaniOnayli] = useState(false);
-  const [okunanSozlesmeTuru, setOkunanSozlesmeTuru] = useState<
-    'kurye_kayit_sozlesmesi' | 'kvkk_aydinlatma' | 'kurye_ehliyet_arac_beyani' | null
-  >(null);
+  // Dinamik Firestore sözleşme okuma & onay durumları
+  const [okunanSozlesmeler, setOkunanSozlesmeler] = useState<Record<string, boolean>>({});
+  const [onaylananSozlesmeler, setOnaylananSozlesmeler] = useState<Record<string, boolean>>({});
+  const [okunanSozlesmeTuru, setOkunanSozlesmeTuru] = useState<string | null>(null);
 
   // Şifre sıfırlama alanları
   const [sifirlaTelefon, setSifirlaTelefon] = useState('');
@@ -100,6 +104,13 @@ export const KuryeGirisEkrani: React.FC = () => {
     }
   };
 
+  const zorunluSozlesmeler = dinamikSozlesmeler.filter((s) => s.zorunluMu !== false);
+  const tumZorunluOnayliMi =
+    !sozlesmelerYukleniyor &&
+    zorunluSozlesmeler.every(
+      (s) => Boolean(okunanSozlesmeler[s.tur]) && Boolean(onaylananSozlesmeler[s.tur])
+    );
+
   const handleKayitSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setHataMesaji('');
@@ -109,6 +120,17 @@ export const KuryeGirisEkrani: React.FC = () => {
       setHataMesaji('Girdiğiniz şifreler birbiriyle eşleşmiyor.');
       return;
     }
+
+    if (!tumZorunluOnayliMi) {
+      setHataMesaji(
+        'Kayıt işlemini tamamlamak için tüm zorunlu sözleşmeleri açıp okuyarak onaylamalısınız.'
+      );
+      return;
+    }
+
+    const onaylananListe = dinamikSozlesmeler.filter((s) =>
+      Boolean(onaylananSozlesmeler[s.tur])
+    );
 
     const sonuc = await kuryeOlarakKayitOl({
       ad_soyad: adSoyad,
@@ -121,9 +143,7 @@ export const KuryeGirisEkrani: React.FC = () => {
       plaka: aracPlakaGerekli ? plaka : '',
       ehliyet_durumu: ehliyetDurumu,
       belge_beyani: belgeBeyani,
-      sozlesme_onayli: tasimaOnayli,
-      kvkk_onayli: kvkkOnayli,
-      ehliyet_beyani_onayli: ehliyetBeyaniOnayli
+      onaylanan_sozlesmeler: onaylananListe
     });
 
     if (!sonuc.basarili) {
@@ -182,12 +202,20 @@ export const KuryeGirisEkrani: React.FC = () => {
     }
   };
 
-  const okunanSozlesme = okunanSozlesmeTuru ? sozlesmeler[okunanSozlesmeTuru] : null;
+  const sozlesmeMetniniAc = (tur: string) => {
+    setOkunanSozlesmeler((onceki) => ({ ...onceki, [tur]: true }));
+    setOkunanSozlesmeTuru(tur);
+  };
+
+  const okunanSozlesme = okunanSozlesmeTuru
+    ? sozlesmeHaritasi[okunanSozlesmeTuru] || hukukiSozlesmeleriGetir()[okunanSozlesmeTuru] || null
+    : null;
 
   const okunanSozlesmeyiOnayla = () => {
-    if (okunanSozlesmeTuru === 'kurye_kayit_sozlesmesi') setTasimaOnayli(true);
-    if (okunanSozlesmeTuru === 'kvkk_aydinlatma') setKvkkOnayli(true);
-    if (okunanSozlesmeTuru === 'kurye_ehliyet_arac_beyani') setEhliyetBeyaniOnayli(true);
+    if (!okunanSozlesmeTuru) return;
+    const tur = okunanSozlesmeTuru;
+    setOkunanSozlesmeler((onceki) => ({ ...onceki, [tur]: true }));
+    setOnaylananSozlesmeler((onceki) => ({ ...onceki, [tur]: true }));
     setOkunanSozlesmeTuru(null);
   };
 
@@ -211,13 +239,13 @@ export const KuryeGirisEkrani: React.FC = () => {
           </div>
         </div>
 
-        {/* Sekme Anahtarı */}
-        <div className="p-3 bg-[#120616] border-b border-[#3E1646] grid grid-cols-3 gap-1.5">
+        {/* Sekme Anahtarı: Yalnızca Giriş Yap ve Kurye Kaydı */}
+        <div className="p-3 bg-[#120616] border-b border-[#3E1646] grid grid-cols-2 gap-1.5">
           <button
             type="button"
             onClick={() => sekmeDegistir('giris')}
-            className={`py-2.5 px-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-              aktifSekme === 'giris'
+            className={`py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              aktifSekme === 'giris' || aktifSekme === 'sifre_sifirla'
                 ? 'bg-gradient-to-r from-[#6D237A] to-[#4E1659] text-white border border-amber-400/40 shadow'
                 : 'text-purple-200/75 hover:text-white hover:bg-[#240B2C]'
             }`}
@@ -229,7 +257,7 @@ export const KuryeGirisEkrani: React.FC = () => {
           <button
             type="button"
             onClick={() => sekmeDegistir('kayit')}
-            className={`py-2.5 px-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+            className={`py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               aktifSekme === 'kayit'
                 ? 'bg-gradient-to-r from-[#6D237A] to-[#4E1659] text-white border border-amber-400/40 shadow'
                 : 'text-purple-200/75 hover:text-white hover:bg-[#240B2C]'
@@ -237,19 +265,6 @@ export const KuryeGirisEkrani: React.FC = () => {
           >
             <UserPlus className="w-3.5 h-3.5 text-emerald-300" />
             <span>Kurye Kaydı</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => sekmeDegistir('sifre_sifirla')}
-            className={`py-2.5 px-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-              aktifSekme === 'sifre_sifirla'
-                ? 'bg-gradient-to-r from-[#6D237A] to-[#4E1659] text-white border border-amber-400/40 shadow'
-                : 'text-purple-200/75 hover:text-white hover:bg-[#240B2C]'
-            }`}
-          >
-            <KeyRound className="w-3.5 h-3.5 text-amber-300" />
-            <span>Şifre Sıfırla</span>
           </button>
         </div>
 
@@ -519,84 +534,121 @@ export const KuryeGirisEkrani: React.FC = () => {
                 </div>
               </div>
 
-              {/* 3 Zorunlu Sözleşme Onayı + Oku Modalları */}
+              {/* Dinamik Firestore Sözleşme Onayları + Oku Modalları */}
               <div className="p-3.5 rounded-2xl bg-[#110415] border border-[#4B1D55] space-y-2.5">
-                <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-300">
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>Zorunlu Yasal Onaylar (RFC 3161 + SHA-256 Zaman Damgalı)</span>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-300">
+                    <ShieldCheck className="w-4 h-4 shrink-0" />
+                    <span>Yasal Sözleşmeler (RFC 3161 + SHA-256 Zaman Damgalı)</span>
+                  </div>
+                  <span className="text-[10px] text-purple-300/75">
+                    {dinamikSozlesmeler.length} aktif belge
+                  </span>
                 </div>
 
-                <div className="flex items-start justify-between gap-2">
-                  <label className="flex items-start gap-2 cursor-pointer text-[11px] text-purple-100 leading-snug">
-                    <input
-                      type="checkbox"
-                      checked={tasimaOnayli}
-                      onChange={(e) => setTasimaOnayli(e.target.checked)}
-                      className="accent-amber-500 w-4 h-4 mt-0.5 shrink-0"
-                    />
-                    <span>Kurye Taşıma ve Bağımsız Hizmet Sözleşmesini okudum, kabul ediyorum.</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setOkunanSozlesmeTuru('kurye_kayit_sozlesmesi')}
-                    className="px-2.5 py-1 rounded-lg bg-[#2A0E33] hover:bg-[#3A1447] text-amber-300 font-bold text-[10px] border border-[#562163] shrink-0 cursor-pointer"
-                  >
-                    Oku
-                  </button>
-                </div>
+                {sozlesmelerYukleniyor ? (
+                  <div className="py-3 text-center text-[11px] text-purple-200/75">
+                    Sözleşmeler Firestore üzerinden canlı yükleniyor...
+                  </div>
+                ) : dinamikSozlesmeler.length === 0 ? (
+                  <div className="py-2.5 px-3 rounded-xl bg-[#1A0821] border border-[#3E1646] text-[11px] text-purple-200/80">
+                    {sozlesmeHatasi ||
+                      'Şu anda kurye başvurusu için tanımlı aktif sözleşme bulunmuyor.'}
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {dinamikSozlesmeler.map((sozlesme) => {
+                      const okundu = Boolean(okunanSozlesmeler[sozlesme.tur]);
+                      const onayli = Boolean(onaylananSozlesmeler[sozlesme.tur]);
+                      return (
+                        <div
+                          key={sozlesme.tur}
+                          className="flex items-start justify-between gap-2 p-2 rounded-xl bg-[#180A1F]/80 border border-[#3E1646]"
+                        >
+                          <label className="flex items-start gap-2 cursor-pointer text-[11px] text-purple-100 leading-snug flex-1">
+                            <input
+                              type="checkbox"
+                              checked={onayli}
+                              onChange={(e) => {
+                                if (!okundu) {
+                                  sozlesmeMetniniAc(sozlesme.tur);
+                                  return;
+                                }
+                                setOnaylananSozlesmeler((onceki) => ({
+                                  ...onceki,
+                                  [sozlesme.tur]: e.target.checked
+                                }));
+                              }}
+                              className="accent-amber-500 w-4 h-4 mt-0.5 shrink-0"
+                            />
+                            <span>
+                              <span className="font-semibold text-white">
+                                {sozlesme.baslik}
+                              </span>{' '}
+                              {sozlesme.zorunluMu !== false ? (
+                                <span className="text-amber-300 font-bold">(Zorunlu)</span>
+                              ) : (
+                                <span className="text-purple-300/70">(İsteğe Bağlı)</span>
+                              )}
+                              {!okundu && (
+                                <span className="block text-[10px] text-amber-300/85 mt-0.5">
+                                  Onaylamak için önce &ldquo;Oku&rdquo; butonundan metni açınız.
+                                </span>
+                              )}
+                            </span>
+                          </label>
 
-                <div className="flex items-start justify-between gap-2">
-                  <label className="flex items-start gap-2 cursor-pointer text-[11px] text-purple-100 leading-snug">
-                    <input
-                      type="checkbox"
-                      checked={kvkkOnayli}
-                      onChange={(e) => setKvkkOnayli(e.target.checked)}
-                      className="accent-emerald-500 w-4 h-4 mt-0.5 shrink-0"
-                    />
-                    <span>KVKK Aydınlatma Metnini (canlı GPS ve iletişim dahil) okudum, onaylıyorum.</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setOkunanSozlesmeTuru('kvkk_aydinlatma')}
-                    className="px-2.5 py-1 rounded-lg bg-[#2A0E33] hover:bg-[#3A1447] text-emerald-300 font-bold text-[10px] border border-[#562163] shrink-0 cursor-pointer"
-                  >
-                    Oku
-                  </button>
-                </div>
-
-                <div className="flex items-start justify-between gap-2">
-                  <label className="flex items-start gap-2 cursor-pointer text-[11px] text-purple-100 leading-snug">
-                    <input
-                      type="checkbox"
-                      checked={ehliyetBeyaniOnayli}
-                      onChange={(e) => setEhliyetBeyaniOnayli(e.target.checked)}
-                      className="accent-amber-500 w-4 h-4 mt-0.5 shrink-0"
-                    />
-                    <span>Araç Muayene, Trafik Sigortası, Ehliyet ve İş Güvenliği Beyanını kabul ediyorum.</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setOkunanSozlesmeTuru('kurye_ehliyet_arac_beyani')}
-                    className="px-2.5 py-1 rounded-lg bg-[#2A0E33] hover:bg-[#3A1447] text-amber-300 font-bold text-[10px] border border-[#562163] shrink-0 cursor-pointer"
-                  >
-                    Oku
-                  </button>
-                </div>
+                          <button
+                            type="button"
+                            onClick={() => sozlesmeMetniniAc(sozlesme.tur)}
+                            className={`px-2.5 py-1 rounded-lg font-bold text-[10px] border shrink-0 cursor-pointer transition-colors ${
+                              okundu
+                                ? 'bg-emerald-950/70 text-emerald-300 border-emerald-500/40'
+                                : 'bg-[#2A0E33] hover:bg-[#3A1447] text-amber-300 border-[#562163]'
+                            }`}
+                          >
+                            {okundu ? 'Okundu ✓' : 'Oku'}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <button
                 type="submit"
-                disabled={yukleniyor}
-                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 text-white font-black text-sm shadow-lg shadow-emerald-600/20 cursor-pointer disabled:opacity-50 transition-all"
+                disabled={yukleniyor || sozlesmelerYukleniyor || !tumZorunluOnayliMi}
+                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 text-white font-black text-sm shadow-lg shadow-emerald-600/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
-                {yukleniyor ? 'Başvuru ve Zaman Damgası Oluşturuluyor...' : 'Kurye Başvurusunu Tamamla & Damgala'}
+                {yukleniyor
+                  ? 'Başvuru ve Zaman Damgası Oluşturuluyor...'
+                  : 'Kurye Başvurusunu Tamamla & Damgala'}
               </button>
             </form>
           )}
 
-          {/* SEKME 3: ŞİFRE SIFIRLAMA */}
+          {/* ŞİFREMİ UNUTTUM / ŞİFRE SIFIRLAMA (Yalnızca linkten açılır) */}
           {aktifSekme === 'sifre_sifirla' && (
             <div className="space-y-4">
+              <div className="flex items-center justify-between border-b border-[#3E1646] pb-3">
+                <div className="flex items-center gap-2">
+                  <KeyRound className="w-4 h-4 text-amber-300" />
+                  <h2 className="text-sm font-extrabold text-white">Kurye Şifre Sıfırlama</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBulunanGuvenlikSorusu('');
+                    sekmeDegistir('giris');
+                  }}
+                  className="inline-flex items-center gap-1 text-xs font-bold text-purple-200 hover:text-amber-300 cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Girişe Dön</span>
+                </button>
+              </div>
+
               {!bulunanGuvenlikSorusu ? (
                 <form onSubmit={handleGuvenlikSorusuSorgula} className="space-y-3.5">
                   <p className="text-xs text-purple-200/80 leading-relaxed">

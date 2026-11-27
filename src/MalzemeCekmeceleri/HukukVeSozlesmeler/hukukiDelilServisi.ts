@@ -9,8 +9,12 @@ import {
 } from 'firebase/firestore';
 import { db, canliFirebaseAktifMi } from '@/src/veritabani/FirebaseIstemcisi';
 import { firestoreHatasiniYonet, IslemTipi } from '@/src/veritabani/FirebaseHataYoneticisi';
-import { hukukiSozlesmeleriGetir } from './hukukDeposu';
-import type { DamgaDurumu, HukukiIslemTuru, HukukiOnayLogu } from './tipler';
+import {
+  firestoreSozlesmeleriGetir,
+  hukukiSozlesmeleriGetir,
+  sozlesmeEkranUygunMu
+} from './hukukDeposu';
+import type { DamgaDurumu, HukukiIslemTuru, HukukiOnayLogu, HukukiSozlesme } from './tipler';
 
 const YEREL_LOGLAR_ANAHTARI = 'afyon_hukuki_onay_loglari_v2';
 const DAMGA_API_YOLU = '/api/zaman-damgasi/damgala';
@@ -309,36 +313,59 @@ export async function hukukiDelilDamgala(
 }
 
 /**
- * Kurye kayıt sözleşmelerinin üçünü (taşıma sözleşmesi, KVKK, ehliyet/araç beyanı) ayrı ayrı damgalar.
+ * Onaylanan tüm dinamik Firestore sözleşmelerini ayrı ayrı RFC 3161 + SHA-256 ile damgalar.
+ * Sabit sözleşme listesi tutmaz; tek kaynak Firestore `sozlesmeler` koleksiyonudur.
  */
 export async function kuryeKayitSozlesmeleriniDamgala(param: {
   kullaniciKimlik: string;
   kullaniciTelefon?: string;
   kullaniciAdSoyad?: string;
   ekDetay?: Record<string, unknown>;
+  sozlesmeler?: HukukiSozlesme[];
   sozlesmeTurleri?: string[];
 }): Promise<HukukiDelilSonucu[]> {
-  const sozlesmeler = hukukiSozlesmeleriGetir();
-  const hedefler = param.sozlesmeTurleri && param.sozlesmeTurleri.length > 0
-    ? param.sozlesmeTurleri
-    : ['kurye_kayit_sozlesmesi', 'kvkk_aydinlatma', 'kurye_ehliyet_arac_beyani'];
+  let hedefSozlesmeler: HukukiSozlesme[] = Array.isArray(param.sozlesmeler)
+    ? param.sozlesmeler
+    : [];
+
+  if (hedefSozlesmeler.length === 0) {
+    const mevcutHarita = hukukiSozlesmeleriGetir();
+    let liste = Object.values(mevcutHarita);
+    if (liste.length === 0) {
+      liste = await firestoreSozlesmeleriGetir();
+    }
+    liste = liste.filter((s) => sozlesmeEkranUygunMu(s, 'kurye_basvuru'));
+
+    if (param.sozlesmeTurleri && param.sozlesmeTurleri.length > 0) {
+      const seciliSet = new Set(param.sozlesmeTurleri);
+      hedefSozlesmeler = liste.filter((s) => seciliSet.has(s.tur));
+    } else {
+      hedefSozlesmeler = liste;
+    }
+  }
+
+  if (hedefSozlesmeler.length === 0) {
+    return [];
+  }
 
   return Promise.all(
-    hedefler.map((tur) => {
-      const sozlesme = sozlesmeler[tur];
-      return hukukiDelilDamgala({
-        sozlesmeTuru: tur,
-        sozlesmeVersiyonu: sozlesme?.versiyon || '1.0.0',
+    hedefSozlesmeler.map((sozlesme) =>
+      hukukiDelilDamgala({
+        sozlesmeTuru: sozlesme.tur,
+        sozlesmeVersiyonu: sozlesme.versiyon || '1.0.0',
         islemTuru: 'kayit',
         onaylandiMi: true,
         ilgiliKayitId: param.kullaniciKimlik,
         kullaniciKimlik: param.kullaniciKimlik,
         kullaniciTelefon: param.kullaniciTelefon,
         kullaniciAdSoyad: param.kullaniciAdSoyad,
-        sozlesmeMetni: sozlesme?.icerik,
-        ekDetay: param.ekDetay
-      });
-    })
+        sozlesmeMetni: sozlesme.icerik,
+        ekDetay: {
+          ...(param.ekDetay || {}),
+          sozlesmeBaslik: sozlesme.baslik
+        }
+      })
+    )
   );
 }
 
@@ -354,8 +381,13 @@ export async function kuryeIptalBeyaniDamgala(param: {
   detayNot?: string;
   kaynak?: string;
 }): Promise<HukukiDelilSonucu> {
-  const sozlesmeler = hukukiSozlesmeleriGetir();
-  const iptalSozlesmesi = sozlesmeler.iptal_iade_kosullari;
+  let iptalSozlesmesi: HukukiSozlesme | undefined =
+    hukukiSozlesmeleriGetir().iptal_iade_kosullari;
+  if (!iptalSozlesmesi) {
+    const canliListe = await firestoreSozlesmeleriGetir();
+    iptalSozlesmesi = canliListe.find((s) => s.tur === 'iptal_iade_kosullari');
+  }
+
   return hukukiDelilDamgala({
     sozlesmeTuru: 'iptal_iade_kosullari',
     sozlesmeVersiyonu: iptalSozlesmesi?.versiyon || '1.0.0',

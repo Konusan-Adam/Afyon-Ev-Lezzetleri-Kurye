@@ -4,6 +4,11 @@ import { belgeKaydet, koleksiyonGetir } from '@/src/veritabani/FirebaseKoleksiyo
 import { telefonGecerliMi } from '@/src/MalzemeCekmeceleri/Dogrulama/telefonDogrulayici';
 import { patronBildirimiEkle } from '@/src/MalzemeCekmeceleri/PatronBildirimServisi';
 import { kuryeKayitSozlesmeleriniDamgala } from '@/src/MalzemeCekmeceleri/HukukVeSozlesmeler/hukukiDelilServisi';
+import {
+  firestoreSozlesmeleriGetir,
+  sozlesmeEkranUygunMu
+} from '@/src/MalzemeCekmeceleri/HukukVeSozlesmeler/hukukDeposu';
+import type { HukukiSozlesme } from '@/src/MalzemeCekmeceleri/HukukVeSozlesmeler/tipler';
 
 export const KURYE_GUVENLIK_SORULARI = [
   'İlk motorunuzun veya aracınızın markası nedir?',
@@ -57,9 +62,7 @@ export interface KuryeKayitBilgisi {
   plaka?: string;
   ehliyet_durumu: string;
   belge_beyani: string;
-  sozlesme_onayli: boolean;
-  kvkk_onayli: boolean;
-  ehliyet_beyani_onayli: boolean;
+  onaylanan_sozlesmeler: HukukiSozlesme[];
 }
 
 export interface KuryeKimlikSonucu {
@@ -353,10 +356,24 @@ export async function kuryeKayitOl(girdi: KuryeKayitBilgisi): Promise<KuryeKimli
     return { basarili: false, mesaj: 'Lütfen ehliyet ve adli sicil / belge beyanını seçiniz.' };
   }
 
-  if (!girdi.sozlesme_onayli || !girdi.kvkk_onayli || !girdi.ehliyet_beyani_onayli) {
+  const onaylananListe = Array.isArray(girdi.onaylanan_sozlesmeler)
+    ? girdi.onaylanan_sozlesmeler
+    : [];
+  const onaylananTurler = new Set(onaylananListe.map((s) => s.tur));
+
+  const gecerliSozlesmeler = (await firestoreSozlesmeleriGetir()).filter((s) =>
+    sozlesmeEkranUygunMu(s, 'kurye_basvuru')
+  );
+  const eksikZorunlu = gecerliSozlesmeler.filter(
+    (s) => s.zorunluMu !== false && !onaylananTurler.has(s.tur)
+  );
+
+  if (eksikZorunlu.length > 0) {
     return {
       basarili: false,
-      mesaj: 'Kayıt işlemini tamamlamak için üç yasal onay kutusunun tamamını işaretlemelisiniz.'
+      mesaj: `Kayıt işlemini tamamlamak için tüm zorunlu sözleşmeleri (${eksikZorunlu
+        .map((s) => s.kisaBaslik || s.baslik)
+        .join(', ')}) açıp okuyarak onaylamalısınız.`
     };
   }
 
@@ -450,6 +467,7 @@ export async function kuryeKayitOl(girdi: KuryeKayitBilgisi): Promise<KuryeKimli
     kullaniciKimlik: kimlikId,
     kullaniciTelefon: duzgunTelefon,
     kullaniciAdSoyad: adSoyad,
+    sozlesmeler: onaylananListe,
     ekDetay: {
       aracTipi,
       plaka: kullaniciBelgesi.plaka,
